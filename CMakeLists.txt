@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 3.16)
-project(Louhi VERSION 0.1 LANGUAGES CXX)
+project(Louhi VERSION 0.1.0 LANGUAGES CXX)
+
+configure_file(
+    ${CMAKE_SOURCE_DIR}/src/version.h.in
+    ${CMAKE_BINARY_DIR}/version.h
+)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -11,7 +16,7 @@ find_package(Qt5 REQUIRED COMPONENTS Widgets Core Gui Network Xml)
 find_package(OpenSSL REQUIRED)
 find_library(NATS_LIBRARY nats)
 
-include_directories(${CMAKE_SOURCE_DIR}/src)
+include_directories(${CMAKE_SOURCE_DIR}/src ${CMAKE_BINARY_DIR})
 
 add_library(plugininterface SHARED
     src/plugininterface.h
@@ -38,6 +43,7 @@ add_executable(louhi
     src/connectionstatusled.h
     src/connectionledmanager.cpp
     src/connectionledmanager.h
+    resources.qrc
 )
 
 target_link_libraries(louhi plugininterface Qt5::Widgets Qt5::Gui ${NATS_LIBRARY})

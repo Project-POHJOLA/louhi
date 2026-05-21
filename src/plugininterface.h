@@ -61,7 +61,8 @@ public:
 
 public slots:
     virtual void deliverMessage(const QString& topic, const QString& payload) {
-        emit messageReceived(topic, payload);
+        Q_UNUSED(topic);
+        Q_UNUSED(payload);
     }
 
 signals:

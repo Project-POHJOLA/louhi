@@ -95,6 +95,12 @@ public:
         double hae,
         double ce,
         double le,
+        const QString& groupName = QString(),
+        const QString& role = QString(),
+        const QString& takvDevice = QString(),
+        const QString& takvOs = QString(),
+        const QString& takvPlatform = QString(),
+        const QString& takvVersion = QString(),
         const QString& remarks = QString()
     );
 
@@ -104,11 +110,6 @@ public:
         const QString& chatGroup,
         const QString& message,
         const QString& toUid = QString()
-    );
-
-    static QString buildPing(
-        const QString& uid,
-        const QString& callsign
     );
 };
 

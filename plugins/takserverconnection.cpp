@@ -17,16 +17,11 @@ TakServerConnection::TakServerConnection(const TakServerConfig& config, QObject*
     , m_connected(false)
     , m_userDisconnected(false)
     , m_statusText("Idle")
-    , m_pingTimer(new QTimer(this))
-    , m_pingIntervalMs(30000)
     , m_reconnectTimer(new QTimer(this))
     , m_reconnectAttempts(0)
     , m_reconnectDelayMs(kReconnectMinDelayMs)
 {
     m_uid = QString("tak-%1-%2").arg(m_config.id).arg(QUuid::createUuid().toString(QUuid::WithoutBraces).left(8));
-
-    m_pingTimer->setSingleShot(false);
-    connect(m_pingTimer, &QTimer::timeout, this, &TakServerConnection::onPingTimeout);
 
     m_reconnectTimer->setSingleShot(true);
     connect(m_reconnectTimer, &QTimer::timeout, this, &TakServerConnection::onReconnectTimeout);
@@ -115,7 +110,6 @@ void TakServerConnection::disconnect()
     m_reconnectAttempts = 0;
     m_reconnectDelayMs = kReconnectMinDelayMs;
     m_userDisconnected = true;
-    m_pingTimer->stop();
 
     if (m_socket) {
         m_socket->disconnectFromHost();
@@ -146,12 +140,6 @@ void TakServerConnection::sendCoT(const QString& xml)
     data.append('\n');
     m_socket->write(data);
     m_socket->flush();
-}
-
-void TakServerConnection::sendPing()
-{
-    QString ping = CoTMessageBuilder::buildPing(m_uid, m_config.callsign);
-    sendCoT(ping);
 }
 
 QString TakServerConnection::statusText() const
@@ -269,15 +257,11 @@ void TakServerConnection::onConnected()
     m_statusText = QString("Connected to %1 as %2").arg(m_config.address).arg(m_config.callsign);
     emit statusChanged(m_statusText);
     emit connected();
-
-    m_pingTimer->start(m_pingIntervalMs);
-    sendPing();
 }
 
 void TakServerConnection::onDisconnected()
 {
     m_connected = false;
-    m_pingTimer->stop();
     m_statusText = "Disconnected";
     emit statusChanged(m_statusText);
     emit disconnected();
@@ -289,7 +273,6 @@ void TakServerConnection::onError(QAbstractSocket::SocketError socketError)
 {
     Q_UNUSED(socketError);
     m_connected = false;
-    m_pingTimer->stop();
 
     if (m_socket) {
         m_socket->deleteLater();
@@ -316,13 +299,6 @@ void TakServerConnection::onReadyRead()
 {
     m_readBuffer.append(m_socket->readAll());
     parseBuffer();
-}
-
-void TakServerConnection::onPingTimeout()
-{
-    if (m_connected) {
-        sendPing();
-    }
 }
 
 void TakServerConnection::onReconnectTimeout()

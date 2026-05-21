@@ -14,6 +14,12 @@ QString CoTMessageBuilder::buildPositionReport(
     double hae,
     double ce,
     double le,
+    const QString& groupName,
+    const QString& role,
+    const QString& takvDevice,
+    const QString& takvOs,
+    const QString& takvPlatform,
+    const QString& takvVersion,
     const QString& remarks
 ) {
     QDateTime now = QDateTime::currentDateTimeUtc();
@@ -48,6 +54,22 @@ QString CoTMessageBuilder::buildPositionReport(
     writer.writeAttribute("callsign", callsign);
     writer.writeAttribute("endpoint", "*");
     writer.writeEndElement();
+
+    if (!groupName.isEmpty() || !role.isEmpty()) {
+        writer.writeStartElement("__group");
+        writer.writeAttribute("name", groupName);
+        writer.writeAttribute("role", role);
+        writer.writeEndElement();
+    }
+
+    if (!takvDevice.isEmpty() || !takvPlatform.isEmpty()) {
+        writer.writeStartElement("takv");
+        writer.writeAttribute("device", takvDevice);
+        writer.writeAttribute("os", takvOs);
+        writer.writeAttribute("platform", takvPlatform);
+        writer.writeAttribute("version", takvVersion);
+        writer.writeEndElement();
+    }
 
     if (!remarks.isEmpty()) {
         writer.writeStartElement("remarks");
@@ -126,48 +148,6 @@ QString CoTMessageBuilder::buildChatMessage(
     writer.writeEndElement();
 
     writer.writeEndElement();
-    writer.writeEndElement();
-    writer.writeEndDocument();
-
-    return QString::fromUtf8(buffer.data());
-}
-
-QString CoTMessageBuilder::buildPing(
-    const QString& uid,
-    const QString& callsign
-) {
-    QDateTime now = QDateTime::currentDateTimeUtc();
-    QString stale = now.addSecs(120).toString(Qt::ISODate);
-    QString timeStr = now.toString(Qt::ISODate);
-
-    QBuffer buffer;
-    buffer.open(QIODevice::WriteOnly);
-    QXmlStreamWriter writer(&buffer);
-    writer.setAutoFormatting(true);
-    writer.writeStartDocument();
-    writer.writeStartElement("event");
-    writer.writeAttribute("version", "2.0");
-    writer.writeAttribute("uid", uid);
-    writer.writeAttribute("type", "t-x-c-o-n");
-    writer.writeAttribute("how", "m-g");
-    writer.writeAttribute("time", timeStr);
-    writer.writeAttribute("start", timeStr);
-    writer.writeAttribute("stale", stale);
-
-    writer.writeStartElement("point");
-    writer.writeAttribute("lat", "0.0");
-    writer.writeAttribute("lon", "0.0");
-    writer.writeAttribute("hae", "9999999.0");
-    writer.writeAttribute("ce", "9999999.0");
-    writer.writeAttribute("le", "9999999.0");
-    writer.writeEndElement();
-
-    writer.writeStartElement("detail");
-    writer.writeStartElement("contact");
-    writer.writeAttribute("callsign", callsign);
-    writer.writeEndElement();
-    writer.writeEndElement();
-
     writer.writeEndElement();
     writer.writeEndDocument();
 

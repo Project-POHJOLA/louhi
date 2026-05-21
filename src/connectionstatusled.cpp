@@ -10,7 +10,7 @@ ConnectionStatusLed::ConnectionStatusLed(const QString& connectionType, const QS
 {
     setFixedSize(16, 16);
     m_trafficTimer->setSingleShot(true);
-    m_trafficTimer->setInterval(500);
+    m_trafficTimer->setInterval(250);
     connect(m_trafficTimer, &QTimer::timeout, this, [this]() {
         if (m_state == Traffic) {
             m_state = Connected;

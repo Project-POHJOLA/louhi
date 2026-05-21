@@ -50,6 +50,7 @@ private:
     QLineEdit* m_certPasswordEdit;
 
     QLineEdit* m_callsignEdit;
+    QLineEdit* m_cotTypeEdit;
     QComboBox* m_colorCombo;
     QComboBox* m_roleCombo;
 

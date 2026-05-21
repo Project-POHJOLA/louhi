@@ -22,6 +22,7 @@ struct TakServerConfig {
     QString callsign;
     QString color;
     QString role;
+    QString cotType;
     bool autoConnect;
     bool debugLogging;
 };
@@ -37,7 +38,6 @@ public:
     void connectToServer();
     void disconnect();
     void sendCoT(const QString& xml);
-    void sendPing();
 
     bool isConnected() const { return m_connected; }
     TakServerConfig config() const { return m_config; }
@@ -58,7 +58,6 @@ private slots:
     void onError(QAbstractSocket::SocketError error);
     void onSslErrors(const QList<QSslError>& errors);
     void onReadyRead();
-    void onPingTimeout();
     void onReconnectTimeout();
 
 private:
@@ -75,9 +74,6 @@ private:
     QMutex m_mutex;
 
     QByteArray m_readBuffer;
-
-    QTimer* m_pingTimer;
-    int m_pingIntervalMs;
 
     QTimer* m_reconnectTimer;
     int m_reconnectAttempts;

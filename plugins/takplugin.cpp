@@ -1,6 +1,7 @@
 #include "takplugin.h"
 #include "taksettingsdialog.h"
 #include "cotmessage.h"
+#include "version.h"
 
 #include <QLabel>
 #include <QVBoxLayout>
@@ -10,7 +11,9 @@
 #include <QDebug>
 #include <QListWidget>
 #include <QJsonArray>
+#include <QJsonDocument>
 #include <QTimer>
+#include <QSysInfo>
 
 TakPlugin::TakPlugin(QObject* parent)
     : PluginInterface(parent)
@@ -18,6 +21,7 @@ TakPlugin::TakPlugin(QObject* parent)
     , m_mainLayout(nullptr)
     , m_serverStatusList(nullptr)
     , m_connectionLabel(nullptr)
+    , m_deviceUid(QUuid::createUuid().toString(QUuid::WithoutBraces).left(8).toUpper())
 {
     m_info.id = "tak_communication";
     m_info.name = "TAK Communication";
@@ -28,7 +32,7 @@ TakPlugin::TakPlugin(QObject* parent)
     m_info.enabled = true;
     m_info.dependencies = QStringList();
     m_info.capabilities = QStringList() << "CoT" << "TCP/TLS" << "Multi-Server" << "Position Reports" << "Chat";
-    m_info.subscribeTopics = QStringList() << "tak.>";
+    m_info.subscribeTopics = QStringList() << "tak.>" << "location.position";
     m_info.publishTopics = QStringList() << "tak.>";
 
     connect(this, &PluginInterface::statusChanged, this, [this](const QString& status) {
@@ -274,6 +278,84 @@ void TakPlugin::onServerStatusChanged(const QString& status)
     updateStatusDisplay();
 }
 
+void TakPlugin::deliverMessage(const QString& topic, const QString& payload)
+{
+    PluginInterface::deliverMessage(topic, payload);
+
+    if (topic == "location.position") {
+        QJsonParseError error;
+        QJsonDocument doc = QJsonDocument::fromJson(payload.toUtf8(), &error);
+        if (error.error != QJsonParseError::NoError) {
+            qDebug() << "TAK Plugin: Failed to parse location JSON:" << error.errorString();
+            return;
+        }
+
+        QJsonObject loc = doc.object();
+        double lat = loc.value("latitude").toDouble();
+        double lon = loc.value("longitude").toDouble();
+        double alt = loc.value("altitude").toDouble(0.0);
+        double hdop = loc.value("hdop").toDouble(99.9);
+        QString source = loc.value("source").toString();
+
+        QString how = "m-g";
+        QString sourceLower = source.toLower();
+        if (sourceLower == "manual") {
+            how = "h-e";
+        }
+
+        double ce = (sourceLower == "manual") ? 1.0 : hdop;
+        double le = 999999.9;
+
+        for (const TakServerConfig& cfg : m_serverConfigs) {
+            if (m_connections.contains(cfg.id)) {
+                TakServerConnection* conn = m_connections[cfg.id];
+                if (conn->isConnected()) {
+                    QString uid = QString("LOUHI-%1").arg(cfg.callsign);
+                    QString cotType = cfg.cotType.isEmpty() ? "a-f-G-U" : cfg.cotType;
+                    QString cotXml = CoTMessageBuilder::buildPositionReport(
+                        uid,
+                        cfg.callsign,
+                        cotType,
+                        how,
+                        lat,
+                        lon,
+                        alt,
+                        ce,
+                        le,
+                        cfg.color,
+                        cfg.role,
+                        m_deviceUid,
+                        QSysInfo::prettyProductName(),
+                        "LOUHI",
+                        LOUHI_VERSION_STRING
+                    );
+                    conn->sendCoT(cotXml);
+
+                    if (cfg.debugLogging) {
+                        qDebug() << "TAK Plugin: Sent CoT for" << cfg.callsign
+                                 << "lat:" << lat << "lon:" << lon
+                                 << "how:" << how << "source:" << source
+                                 << "type:" << cotType
+                                 << "ce:" << ce << "le:" << le;
+                    }
+                }
+            }
+        }
+    }
+}
+
+void TakPlugin::sendCoTToAllServers(const QString& xml)
+{
+    for (const TakServerConfig& config : m_serverConfigs) {
+        if (m_connections.contains(config.id)) {
+            TakServerConnection* conn = m_connections[config.id];
+            if (conn->isConnected()) {
+                conn->sendCoT(xml);
+            }
+        }
+    }
+}
+
 void TakPlugin::buildStatusWidget()
 {
     m_statusWidget = new QWidget();
@@ -399,6 +481,7 @@ TakServerConfig TakPlugin::configFromJson(const QJsonObject& obj) const
     config.callsign = obj.value("callsign").toString("Unknown");
     config.color = obj.value("color").toString("Unknown");
     config.role = obj.value("role").toString("Team Member");
+    config.cotType = obj.value("cotType").toString("a-f-G-U");
     config.autoConnect = obj.value("autoConnect").toBool(false);
     config.debugLogging = obj.value("debugLogging").toBool(false);
     return config;
@@ -416,6 +499,7 @@ QJsonObject TakPlugin::configToJson(const TakServerConfig& config) const
     obj["callsign"] = config.callsign;
     obj["color"] = config.color;
     obj["role"] = config.role;
+    obj["cotType"] = config.cotType;
     obj["autoConnect"] = config.autoConnect;
     obj["debugLogging"] = config.debugLogging;
     return obj;

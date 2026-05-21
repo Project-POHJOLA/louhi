@@ -1,0 +1,7 @@
+{
+    "IID": "com.louhi.plugininterface/1.0",
+    "Name": "Location",
+    "Description": "Location provider plugin - supports Serial GPS, GPSD, and manual entry",
+    "Version": "0.1",
+    "Author": "LOUHI Team"
+}

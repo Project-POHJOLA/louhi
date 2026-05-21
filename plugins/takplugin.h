@@ -5,6 +5,7 @@
 #include "takserverconnection.h"
 #include <QMap>
 #include <QJsonObject>
+#include <QUuid>
 #include <QtPlugin>
 
 class QWidget;
@@ -38,6 +39,8 @@ public:
     QJsonObject getConfig() const override;
     void setConfig(const QJsonObject& config) override;
 
+    void deliverMessage(const QString& topic, const QString& payload) override;
+
 private slots:
     void onServerConnected();
     void onServerDisconnected();
@@ -56,6 +59,8 @@ private:
     TakServerConfig configFromJson(const QJsonObject& obj) const;
     QJsonObject configToJson(const TakServerConfig& config) const;
 
+    void sendCoTToAllServers(const QString& xml);
+
     PluginInfo m_info;
     QWidget* m_statusWidget;
     QVBoxLayout* m_mainLayout;
@@ -64,6 +69,8 @@ private:
 
     QList<TakServerConfig> m_serverConfigs;
     QMap<QString, TakServerConnection*> m_connections;
+
+    QString m_deviceUid;
 };
 
 #endif

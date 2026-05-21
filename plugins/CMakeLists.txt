@@ -48,3 +48,19 @@ set_target_properties(takplugin PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
     PREFIX ""
 )
+
+add_library(locationplugin SHARED
+    locationplugin.h
+    locationplugin.cpp
+    locationsettingsdialog.h
+    locationsettingsdialog.cpp
+    gpsprovider.h
+    gpsprovider.cpp
+)
+
+target_link_libraries(locationplugin plugininterface Qt5::Widgets Qt5::Core Qt5::Gui Qt5::Network)
+
+set_target_properties(locationplugin PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
+    PREFIX ""
+)

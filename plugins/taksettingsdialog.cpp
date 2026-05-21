@@ -82,6 +82,10 @@ TakSettingsDialog::TakSettingsDialog(QWidget* parent)
     m_callsignEdit->setPlaceholderText("Your callsign");
     identityLayout->addRow("Callsign:", m_callsignEdit);
 
+    m_cotTypeEdit = new QLineEdit(identityGroup);
+    m_cotTypeEdit->setPlaceholderText("a-f-G-U");
+    identityLayout->addRow("CoT Type:", m_cotTypeEdit);
+
     m_colorCombo = new QComboBox(identityGroup);
     m_colorCombo->addItems({"White", "Yellow", "Orange", "Magenta", "Red", "Maroon", "Purple", "Dark Blue", "Blue", "Cyan", "Teal", "Green", "Dark Green", "Brown"});
     identityLayout->addRow("Color:", m_colorCombo);
@@ -156,6 +160,7 @@ void TakSettingsDialog::addServer()
     config.callsign = "Unknown";
     config.color = "Unknown";
     config.role = "Team Member";
+    config.cotType = "a-f-G-U";
     config.autoConnect = false;
     config.debugLogging = false;
 
@@ -212,6 +217,7 @@ void TakSettingsDialog::loadCurrentServerToForm()
     m_certPathEdit->setText(config.certFilePath);
     m_certPasswordEdit->setText(config.certPassword);
     m_callsignEdit->setText(config.callsign);
+    m_cotTypeEdit->setText(config.cotType);
 
     int colorIdx = m_colorCombo->findText(config.color);
     if (colorIdx >= 0) m_colorCombo->setCurrentIndex(colorIdx);
@@ -236,6 +242,7 @@ void TakSettingsDialog::saveFormToCurrentServer()
     config.certFilePath = m_certPathEdit->text().trimmed();
     config.certPassword = m_certPasswordEdit->text();
     config.callsign = m_callsignEdit->text().trimmed();
+    config.cotType = m_cotTypeEdit->text().trimmed();
     config.color = m_colorCombo->currentText();
     config.role = m_roleCombo->currentText();
     config.autoConnect = m_autoConnectCheck->isChecked();
@@ -272,6 +279,7 @@ QList<TakServerConfig> TakSettingsDialog::serverConfigs() const
         copy.certFilePath = m_certPathEdit->text().trimmed();
         copy.certPassword = m_certPasswordEdit->text();
         copy.callsign = m_callsignEdit->text().trimmed();
+        copy.cotType = m_cotTypeEdit->text().trimmed();
         copy.color = m_colorCombo->currentText();
         copy.role = m_roleCombo->currentText();
         copy.autoConnect = m_autoConnectCheck->isChecked();

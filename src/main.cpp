@@ -2,6 +2,7 @@
 #include <QDir>
 #include <QDebug>
 #include <QDockWidget>
+#include <QIcon>
 #include "mainwindow.h"
 #include "plugininterface.h"
 
@@ -10,6 +11,7 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
     app.setApplicationName("LOUHI");
     app.setApplicationVersion("0.1");
+    app.setWindowIcon(QIcon(":/assets/louhi_icon.png"));
 
     QString pluginPath = QCoreApplication::applicationDirPath() + "/plugins";
     qDebug() << "Plugin directory:" << pluginPath;

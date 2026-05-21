@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "mainwindow.moc"
 #include "plugininterface.h"
+#include "version.h"
 #include <QMenuBar>
 #include <QDebug>
 #include <QLabel>
@@ -14,7 +15,7 @@ MainWindow::MainWindow(QWidget* parent)
 {
     m_pluginManager->setConfigManager(m_configManager);
 
-    setWindowTitle("LOUHI - Battle Management System");
+    setWindowTitle(QString("LOUHI v%1 - Battle Management System").arg(LOUHI_VERSION_STRING));
     resize(1024, 768);
 
     m_configManager->loadConfig();
@@ -30,7 +31,7 @@ MainWindow::MainWindow(QWidget* parent)
         }
     }
 
-    QLabel* central = new QLabel("LOUHI v0.1\n\nPlugin-based Battle Management System", this);
+    QLabel* central = new QLabel(QString("LOUHI v%1\n\nPlugin-based Battle Management System").arg(LOUHI_VERSION_STRING), this);
     central->setAlignment(Qt::AlignCenter);
     setCentralWidget(central);
 
@@ -94,6 +95,14 @@ void MainWindow::setupConnectionLeds()
             } else {
                 m_ledManager->addLed(ledId, "TAK", "Default");
             }
+        } else if (info.id == "location_communication") {
+            QJsonObject config = plugin->getConfig();
+            QString mainProvider = "Manual";
+            if (config.contains("mainProvider")) {
+                QJsonObject mainObj = config.value("mainProvider").toObject();
+                mainProvider = mainObj.value("name").toString("Manual");
+            }
+            m_ledManager->addLed(ledId, "Location", mainProvider);
         }
     }
 }

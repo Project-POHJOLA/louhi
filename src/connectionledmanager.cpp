@@ -72,6 +72,8 @@ void ConnectionLedManager::onPluginStatusChanged(const QString& pluginId, const 
     } else if (pluginId == "tak_communication") {
         QString ledId = "tak_communication_" + connectionName;
         setLedState(ledId, ledState);
+    } else if (pluginId == "location_communication") {
+        setLedState("location_communication", ledState);
     }
 }
 
@@ -88,5 +90,7 @@ void ConnectionLedManager::onPluginMessageReceived(const QString& pluginId, cons
                 it.value().led->setConnectionState(ConnectionStatusLed::Traffic);
             }
         }
+    } else if (pluginId == "location_communication") {
+        setLedState("location_communication", ConnectionStatusLed::Traffic);
     }
 }
