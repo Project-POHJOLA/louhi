@@ -18,6 +18,8 @@ MainWindow::MainWindow(QWidget* parent)
     setWindowTitle(QString("LOUHI v%1 - Battle Management System").arg(LOUHI_VERSION_STRING));
     resize(1024, 768);
 
+    setDockNestingEnabled(true);
+
     m_configManager->loadConfig();
 
     QJsonObject appConfig = m_configManager->getAppConfig();
@@ -30,10 +32,6 @@ MainWindow::MainWindow(QWidget* parent)
             move(window.value("x").toInt(), window.value("y").toInt());
         }
     }
-
-    QLabel* central = new QLabel(QString("LOUHI v%1\n\nPlugin-based Battle Management System").arg(LOUHI_VERSION_STRING), this);
-    central->setAlignment(Qt::AlignCenter);
-    setCentralWidget(central);
 
     statusBar()->showMessage("Ready");
 

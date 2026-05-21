@@ -9,7 +9,7 @@ LOUHI is a Qt5-based, plugin-driven Battle Management System. The application fo
 | Component | Output | Purpose |
 |-----------|--------|---------|
 | **Core Library** | `libplugininterface.so` | Shared interface: `PluginInterface`, `PluginManager`, `ConfigManager` |
-| **Main Executable** | `louhi` | Entry point, MainWindow, PluginManagerDialog, LED status widgets |
+| **Main Executable** | `louhi` | Entry point, MainWindow (dock-only layout), PluginManagerDialog, LED status widgets |
 | **Plugins** | `plugins/*.so` | Runtime-loaded shared libraries implementing capabilities |
 
 ### Component Diagram
@@ -289,6 +289,10 @@ graph TB
 
 ## UI Structure
 
+### Layout
+
+The application uses a **dock-only layout** — there is no central widget. All Screen-type plugins are created as `QDockWidget` instances that fill the entire window space. Docks can be freely nested, tabbed, resized, and rearranged by the user. Dock nesting is enabled via `setDockNestingEnabled(true)`.
+
 ### Menu Bar (dynamically built)
 
 ```
@@ -316,7 +320,7 @@ Plugin Manager       > [enable/disable plugins dialog]
 | TAK (per server) | `tak_communication_<name>` | TAK | Server name from config |
 | Location | `location_communication` | Location | Main provider name |
 
-LED states: **Red** (Disconnected) → **Green** (Connected) → **Bright Green** (Traffic, auto-reverts after 500ms)
+LED states: **Red** (Disconnected) → **Green** (Connected) → **Bright Green** (Traffic, auto-reverts after 250ms)
 
 ## Version
 
