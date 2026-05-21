@@ -1,0 +1,7 @@
+{
+    "IID": "com.louhi.plugininterface/1.0",
+    "Name": "Message Viewer",
+    "Description": "Screen plugin for displaying incoming NATS messages",
+    "Version": "0.1",
+    "Author": "LOUHI Team"
+}

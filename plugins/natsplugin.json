@@ -1,0 +1,7 @@
+{
+    "IID": "com.louhi.plugininterface/1.0",
+    "Name": "NATS Communication",
+    "Description": "NATS JetStream communication plugin",
+    "Version": "0.1",
+    "Author": "LOUHI Team"
+}

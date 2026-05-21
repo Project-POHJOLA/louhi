@@ -1,0 +1,7 @@
+{
+    "IID": "com.louhi.plugininterface/1.0",
+    "Name": "TAK Communication",
+    "Description": "Team Awareness Kit (TAK) server communication via CoT over TCP/TLS",
+    "Version": "0.1",
+    "Author": "LOUHI Team"
+}
