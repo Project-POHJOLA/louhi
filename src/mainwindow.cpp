@@ -46,7 +46,8 @@ MainWindow::MainWindow(QWidget* parent)
         m_pendingDockState = QByteArray();
     }
 
-    m_mainToolBar = addToolBar(tr("Main"));
+    m_mainToolBar = new QToolBar(tr("Main"), this);
+    addToolBar(Qt::RightToolBarArea, m_mainToolBar);
     m_mainToolBar->setObjectName("mainToolBar");
     m_mainToolBar->setMovable(false);
 
@@ -93,6 +94,13 @@ bool MainWindow::restoreDockState()
     return false;
 }
 
+static QWidget* createSpacer(int width)
+{
+    QWidget* w = new QWidget;
+    w->setFixedWidth(width);
+    return w;
+}
+
 void MainWindow::setupToolbar()
 {
     m_mainToolBar->setVisible(true);
@@ -102,7 +110,7 @@ void MainWindow::setupToolbar()
     aboutAction->setToolTip(tr("About LOUHI"));
     connect(aboutAction, &QAction::triggered, this, &MainWindow::showAbout);
 
-    m_mainToolBar->addSeparator();
+    m_mainToolBar->addWidget(createSpacer(8));
 
     QAction* exitAction = m_mainToolBar->addAction(tr("Exit"));
     exitAction->setToolTip(tr("Exit LOUHI"));
@@ -121,7 +129,7 @@ void MainWindow::setupToolbar()
         groups.prepend(QString());
 
     for (const QString& group : groups) {
-        m_mainToolBar->addSeparator();
+        m_mainToolBar->addWidget(createSpacer(6));
         for (const ToolbarEntry& entry : grouped[group]) {
             QAction* action = m_mainToolBar->addAction(entry.text);
             action->setObjectName(entry.id);
