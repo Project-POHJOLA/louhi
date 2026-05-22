@@ -46,6 +46,7 @@ set(OUR_BINARIES
     "$<TARGET_FILE:takplugin>"
     "$<TARGET_FILE:locationplugin>"
     "$<TARGET_FILE:mapplugin>"
+    "$<TARGET_FILE:osgearthplugin>"
 )
 
 # Build a list of deploy sub-targets we depend on
@@ -57,6 +58,7 @@ set(DEPLOY_DEPS
     takplugin
     locationplugin
     mapplugin
+    osgearthplugin
 )
 
 # Generate the deploy script

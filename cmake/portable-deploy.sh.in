@@ -35,7 +35,7 @@ DESTDIR="${DEPLOY_DIR}" cmake --install "${CMAKE_BINARY_DIR}" --prefix / > /dev/
     mkdir -p "${DEPLOY_BIN_DIR}" "${DEPLOY_LIB_DIR}" "${DEPLOY_PLUGIN_DIR}"
     cp -a "${CMAKE_BINARY_DIR}/louhi" "${DEPLOY_BIN_DIR}/"
     cp -a "${CMAKE_BINARY_DIR}/libplugininterface.so" "${DEPLOY_LIB_DIR}/"
-    for plugin in natsplugin messageviewerplugin takplugin locationplugin mapplugin; do
+    for plugin in natsplugin messageviewerplugin takplugin locationplugin mapplugin osgearthplugin; do
         [ -f "${CMAKE_BINARY_DIR}/plugins/${plugin}.so" ] && \
             cp -a "${CMAKE_BINARY_DIR}/plugins/${plugin}.so" "${DEPLOY_PLUGIN_DIR}/"
     done
