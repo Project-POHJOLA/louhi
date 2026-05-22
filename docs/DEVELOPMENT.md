@@ -259,6 +259,7 @@ target_link_libraries(myplugin plugininterface Qt5::Widgets Qt5::Core Qt5::Gui)
 set_target_properties(myplugin PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
     PREFIX ""
+    INSTALL_RPATH "$ORIGIN/../lib"    # for portable deployment
 )
 ```
 
@@ -294,6 +295,52 @@ Plugins communicate through NATS topics. Use the topic lists in `PluginInfo` to 
 - `publishTopics` - Topics the plugin sends messages to
 
 The `messageReceived` signal delivers incoming messages. Connect to it or override handling in your plugin.
+
+## Portable Deployment
+
+The build system can create a self-contained portable folder with all dependencies bundled.
+
+### Prerequisites
+
+- Qt5, OpenSSL: installed system-wide for building (libraries are bundled automatically)
+- NATS C Client: git submodule at `deps/nats.c`, built statically
+- `chrpath` or `patchelf`: optional, sets RPATH on bundled binaries
+
+### Building the Portable Bundle
+
+```bash
+git submodule update --init --recursive
+mkdir build && cd build
+cmake .. -DBUILD_PORTABLE=ON
+make portable-deploy
+```
+
+Output: `build/Louhi.app/` containing:
+
+```
+Louhi.app/
+├── bin/louhi                    # main executable (RPATH=$ORIGIN/../lib)
+├── lib/                         # all shared library dependencies
+│   ├── libplugininterface.so
+│   ├── libQt5Core.so.5
+│   ├── libQt5Gui.so.5
+│   ├── libQt5Widgets.so.5
+│   ├── libQt5Network.so.5
+│   ├── libQt5Xml.so.5
+│   ├── libcrypto.so.3
+│   ├── libssl.so.3
+│   └── ... (transitive deps)
+├── plugins/
+│   ├── natsplugin.so
+│   ├── takplugin.so
+│   ├── ... (other plugins)
+│   ├── platforms/               # Qt platform plugins
+│   │   └── libqxcb.so
+│   └── imageformats/            # Qt image format plugins
+└── run.sh                       # launcher script (sets LD_LIBRARY_PATH)
+```
+
+Copy the entire `Louhi.app/` directory to a USB stick and run `./run.sh` on any compatible Linux system.
 
 ### Best Practices
 

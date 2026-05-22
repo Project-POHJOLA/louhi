@@ -12,11 +12,13 @@ add_library(natsplugin SHARED
     natsclient.h
 )
 
-target_link_libraries(natsplugin plugininterface Qt5::Widgets Qt5::Core Qt5::Gui ${NATS_LIBRARY})
+target_link_libraries(natsplugin plugininterface Qt5::Widgets Qt5::Core Qt5::Gui nats_static)
 
 set_target_properties(natsplugin PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
     PREFIX ""
+    INSTALL_RPATH "$ORIGIN/../lib"
+    BUILD_RPATH_USE_ORIGIN ON
 )
 
 add_library(messageviewerplugin SHARED
@@ -29,6 +31,8 @@ target_link_libraries(messageviewerplugin plugininterface Qt5::Widgets Qt5::Core
 set_target_properties(messageviewerplugin PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
     PREFIX ""
+    INSTALL_RPATH "$ORIGIN/../lib"
+    BUILD_RPATH_USE_ORIGIN ON
 )
 
 add_library(takplugin SHARED
@@ -47,6 +51,8 @@ target_link_libraries(takplugin plugininterface Qt5::Widgets Qt5::Core Qt5::Gui 
 set_target_properties(takplugin PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
     PREFIX ""
+    INSTALL_RPATH "$ORIGIN/../lib"
+    BUILD_RPATH_USE_ORIGIN ON
 )
 
 add_library(locationplugin SHARED
@@ -63,6 +69,8 @@ target_link_libraries(locationplugin plugininterface Qt5::Widgets Qt5::Core Qt5:
 set_target_properties(locationplugin PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
     PREFIX ""
+    INSTALL_RPATH "$ORIGIN/../lib"
+    BUILD_RPATH_USE_ORIGIN ON
 )
 
 add_library(mapplugin SHARED
@@ -79,4 +87,6 @@ target_link_libraries(mapplugin plugininterface Qt5::Widgets Qt5::Core Qt5::Gui 
 set_target_properties(mapplugin PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
     PREFIX ""
+    INSTALL_RPATH "$ORIGIN/../lib"
+    BUILD_RPATH_USE_ORIGIN ON
 )

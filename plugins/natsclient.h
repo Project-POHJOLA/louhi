@@ -7,7 +7,7 @@
 #include <QMap>
 #include <QMutex>
 
-#include <nats/nats.h>
+#include <nats.h>
 
 class NatsClient : public QObject
 {
