@@ -46,8 +46,7 @@ MainWindow::MainWindow(QWidget* parent)
         m_pendingDockState = QByteArray();
     }
 
-    m_mainToolBar = new QToolBar(tr("Main"), this);
-    addToolBar(Qt::RightToolBarArea, m_mainToolBar);
+    m_mainToolBar = addToolBar(tr("Main"));
     m_mainToolBar->setObjectName("mainToolBar");
     m_mainToolBar->setMovable(false);
 
@@ -94,50 +93,19 @@ bool MainWindow::restoreDockState()
     return false;
 }
 
-void MainWindow::clearPluginToolbars()
-{
-    for (QToolBar* tb : m_pluginToolbars) {
-        removeToolBar(tb);
-        delete tb;
-    }
-    m_pluginToolbars.clear();
-}
-
 void MainWindow::setupToolbar()
 {
-    clearPluginToolbars();
-
     m_mainToolBar->setVisible(true);
     m_mainToolBar->clear();
 
-    QAction* aboutAction = m_mainToolBar->addAction(tr("About"));
-    aboutAction->setToolTip(tr("About LOUHI"));
-    connect(aboutAction, &QAction::triggered, this, &MainWindow::showAbout);
-
-    m_mainToolBar->addSeparator();
-
-    QAction* exitAction = m_mainToolBar->addAction(tr("Exit"));
-    exitAction->setToolTip(tr("Exit LOUHI"));
-    connect(exitAction, &QAction::triggered, qApp, &QApplication::quit);
-
     QMap<QString, QVector<ToolbarEntry>> grouped;
     for (const ToolbarEntry& entry : m_pluginManager->collectToolbarEntries()) {
-        QString g = entry.group.isEmpty() ? QString() : entry.group;
-        grouped[g].append(entry);
+        grouped[entry.group].append(entry);
     }
 
     for (auto it = grouped.begin(); it != grouped.end(); ++it) {
-        const QString& groupName = it.key();
-        const QVector<ToolbarEntry>& entries = it.value();
-
-        QString title = groupName.isEmpty() ? tr("Plugins") : groupName;
-        QToolBar* tb = new QToolBar(title, this);
-        tb->setObjectName(groupName.isEmpty() ? "pluginToolbar" : "pluginToolbar_" + groupName);
-        addToolBar(Qt::RightToolBarArea, tb);
-        tb->setMovable(false);
-
-        for (const ToolbarEntry& entry : entries) {
-            QAction* action = tb->addAction(entry.text);
+        for (const ToolbarEntry& entry : it.value()) {
+            QAction* action = m_mainToolBar->addAction(entry.text);
             action->setObjectName(entry.id);
             if (!entry.tooltip.isEmpty())
                 action->setToolTip(entry.tooltip);
@@ -162,9 +130,21 @@ void MainWindow::setupToolbar()
                 });
             }
         }
-
-        m_pluginToolbars.append(tb);
     }
+
+    m_mainToolBar->addSeparator();
+
+    QWidget* spacer = new QWidget;
+    spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    m_mainToolBar->addWidget(spacer);
+
+    QAction* aboutAction = m_mainToolBar->addAction(tr("About"));
+    aboutAction->setToolTip(tr("About LOUHI"));
+    connect(aboutAction, &QAction::triggered, this, &MainWindow::showAbout);
+
+    QAction* exitAction = m_mainToolBar->addAction(tr("Exit"));
+    exitAction->setToolTip(tr("Exit LOUHI"));
+    connect(exitAction, &QAction::triggered, qApp, &QApplication::quit);
 }
 
 void MainWindow::showAbout()
