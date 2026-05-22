@@ -24,17 +24,29 @@ int main(int argc, char *argv[])
         window.getPluginManager()->discoverPlugins(pluginPath);
         window.getPluginManager()->loadAllPlugins();
 
+        QDockWidget* mapDock = nullptr;
+
         for (PluginInterface* plugin : window.getPluginManager()->getEnabledPlugins()) {
             if (plugin->initialize()) {
                 if (plugin->start()) {
                     PluginInfo info = plugin->getPluginInfo();
-                    if (info.type == PluginType::Screen) {
+                    if (info.type == PluginType::Screen || info.type == PluginType::Map) {
                         QWidget* widget = plugin->getWidget();
                         if (widget) {
                             QDockWidget* dock = new QDockWidget(info.name, &window);
+                            dock->setObjectName(info.name);
                             dock->setWidget(widget);
                             dock->setAttribute(Qt::WA_DeleteOnClose, false);
-                            window.addDockWidget(Qt::RightDockWidgetArea, dock);
+
+                            if (info.type == PluginType::Map) {
+                                window.addDockWidget(Qt::RightDockWidgetArea, dock);
+                                mapDock = dock;
+                            } else if (mapDock) {
+                                window.splitDockWidget(mapDock, dock, Qt::Horizontal);
+                            } else {
+                                window.addDockWidget(Qt::RightDockWidgetArea, dock);
+                            }
+
                             pluginDocks[plugin] = dock;
 
                             QObject::connect(plugin, &PluginInterface::showWidgetRequested,
@@ -46,6 +58,10 @@ int main(int argc, char *argv[])
                     }
                 }
             }
+        }
+
+        if (!window.restoreDockState() && mapDock) {
+            window.resizeDocks({mapDock}, {500}, Qt::Horizontal);
         }
 
         window.getPluginManager()->setupMenu(window.menuBar());

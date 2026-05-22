@@ -41,6 +41,9 @@ private:
     QString m_lastError;
     QMutex m_mutex;
 
+    static int s_refCount;
+    static QMutex s_initMutex;
+
     static void messageHandler(natsConnection* nc, natsSubscription* sub, natsMsg* msg, void* closure);
     void handleMessage(natsMsg* msg);
 };

@@ -2,9 +2,13 @@
 #define NATSSETTINGSDIALOG_H
 
 #include <QDialog>
+#include <QListWidget>
 #include <QLineEdit>
 #include <QSpinBox>
 #include <QCheckBox>
+#include <QPushButton>
+
+#include "natsplugin.h"
 
 class NatsSettingsDialog : public QDialog
 {
@@ -14,16 +18,28 @@ public:
     explicit NatsSettingsDialog(QWidget* parent = nullptr);
     ~NatsSettingsDialog();
 
-    QString serverUrl() const;
-    int port() const;
-    bool autoConnect() const;
+    QList<NatsServerConfig> serverConfigs() const;
+    void setServerConfigs(const QList<NatsServerConfig>& configs);
 
-    void setServerUrl(const QString& url);
-    void setPort(int port);
-    void setAutoConnect(bool autoConnect);
+private slots:
+    void onServerSelected();
+    void addServer();
+    void removeServer();
 
 private:
-    QLineEdit* m_serverUrlEdit;
+    void loadCurrentServerToForm();
+    void saveFormToCurrentServer();
+    void updateServerListDisplay();
+
+    QList<NatsServerConfig> m_servers;
+    int m_currentIndex;
+
+    QListWidget* m_serverList;
+    QPushButton* m_addBtn;
+    QPushButton* m_removeBtn;
+
+    QLineEdit* m_nameEdit;
+    QLineEdit* m_urlEdit;
     QSpinBox* m_portSpin;
     QCheckBox* m_autoConnectCheck;
 };

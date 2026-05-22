@@ -68,7 +68,8 @@ void ConnectionLedManager::onPluginStatusChanged(const QString& pluginId, const 
     }
 
     if (pluginId == "nats_communication") {
-        setLedState("nats_communication", ledState);
+        QString ledId = "nats_communication_" + connectionName;
+        setLedState(ledId, ledState);
     } else if (pluginId == "tak_communication") {
         QString ledId = "tak_communication_" + connectionName;
         setLedState(ledId, ledState);
@@ -83,7 +84,11 @@ void ConnectionLedManager::onPluginMessageReceived(const QString& pluginId, cons
     Q_UNUSED(payload);
 
     if (pluginId == "nats_communication") {
-        setLedState("nats_communication", ConnectionStatusLed::Traffic);
+        for (auto it = m_leds.begin(); it != m_leds.end(); ++it) {
+            if (it.key().startsWith("nats_communication_")) {
+                it.value().led->setConnectionState(ConnectionStatusLed::Traffic);
+            }
+        }
     } else if (pluginId == "tak_communication") {
         for (auto it = m_leds.begin(); it != m_leds.end(); ++it) {
             if (it.key().startsWith("tak_communication_")) {

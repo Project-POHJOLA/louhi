@@ -17,6 +17,7 @@ public:
 private slots:
     void enableSelected();
     void disableSelected();
+    void showInfo();
     void loadPlugins();
 
 private:

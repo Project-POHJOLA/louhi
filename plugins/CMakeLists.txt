@@ -64,3 +64,19 @@ set_target_properties(locationplugin PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
     PREFIX ""
 )
+
+add_library(mapplugin SHARED
+    mapplugin.h
+    mapplugin.cpp
+    mapwidget.h
+    mapwidget.cpp
+    mapsourcesdialog.h
+    mapsourcesdialog.cpp
+)
+
+target_link_libraries(mapplugin plugininterface Qt5::Widgets Qt5::Core Qt5::Gui Qt5::Network)
+
+set_target_properties(mapplugin PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
+    PREFIX ""
+)

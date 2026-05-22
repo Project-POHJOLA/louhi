@@ -2,12 +2,20 @@
 #include <QDebug>
 #include <QByteArray>
 
+int NatsClient::s_refCount = 0;
+QMutex NatsClient::s_initMutex;
+
 NatsClient::NatsClient(QObject* parent)
     : QObject(parent)
     , m_connection(nullptr)
     , m_connected(false)
 {
-    nats_Open(0);
+    s_initMutex.lock();
+    if (s_refCount == 0) {
+        nats_Open(0);
+    }
+    s_refCount++;
+    s_initMutex.unlock();
 }
 
 NatsClient::~NatsClient()
@@ -16,7 +24,12 @@ NatsClient::~NatsClient()
     if (m_connection) {
         natsConnection_Destroy(m_connection);
     }
-    nats_Close();
+    s_initMutex.lock();
+    s_refCount--;
+    if (s_refCount == 0) {
+        nats_Close();
+    }
+    s_initMutex.unlock();
 }
 
 bool NatsClient::connectToServer(const QString& url)

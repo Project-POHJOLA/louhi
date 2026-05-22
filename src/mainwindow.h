@@ -25,6 +25,8 @@ public:
     ConfigManager* getConfigManager() const { return m_configManager; }
     PluginManager* getPluginManager() const { return m_pluginManager; }
 
+    bool restoreDockState();
+
 public slots:
     void showPluginManager();
     void setupConnectionLeds();
@@ -34,6 +36,7 @@ private:
     ConfigManager* m_configManager;
     ConnectionLedManager* m_ledManager;
     QAction* m_pluginManagerAction;
+    QByteArray m_pendingDockState;
 };
 
 #endif

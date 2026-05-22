@@ -33,6 +33,14 @@ MainWindow::MainWindow(QWidget* parent)
         }
     }
 
+    if (appConfig.contains("dockState")) {
+        QByteArray encoded = QByteArray::fromBase64(
+            appConfig.value("dockState").toString().toUtf8());
+        m_pendingDockState = encoded;
+    } else {
+        m_pendingDockState = QByteArray();
+    }
+
     statusBar()->showMessage("Ready");
 
     connect(m_pluginManager, &PluginManager::pluginConnectionStatusChanged,
@@ -50,6 +58,7 @@ MainWindow::~MainWindow()
     window["x"] = x();
     window["y"] = y();
     appConfig["window"] = window;
+    appConfig["dockState"] = QString::fromUtf8(saveState().toBase64());
     m_configManager->setAppConfig(appConfig);
 
     for (PluginInterface* plugin : m_pluginManager->getEnabledPlugins()) {
@@ -61,6 +70,16 @@ MainWindow::~MainWindow()
     m_configManager->saveConfig();
     qDebug() << "MainWindow: Config saved to" << m_configManager->configFilePath();
     m_pluginManager->unloadAllPlugins();
+}
+
+bool MainWindow::restoreDockState()
+{
+    if (!m_pendingDockState.isEmpty()) {
+        bool ok = restoreState(m_pendingDockState);
+        m_pendingDockState.clear();
+        return ok;
+    }
+    return false;
 }
 
 void MainWindow::showPluginManager()
@@ -79,7 +98,18 @@ void MainWindow::setupConnectionLeds()
         QString ledId = info.id;
 
         if (info.id == "nats_communication") {
-            m_ledManager->addLed(ledId, "NATS", "localhost");
+            QJsonObject config = plugin->getConfig();
+            if (config.contains("servers")) {
+                QJsonArray servers = config.value("servers").toArray();
+                for (const QJsonValue& v : servers) {
+                    QJsonObject server = v.toObject();
+                    QString serverName = server.value("name").toString("Unnamed");
+                    QString serverLedId = ledId + "_" + serverName;
+                    m_ledManager->addLed(serverLedId, "NATS", serverName);
+                }
+            } else {
+                m_ledManager->addLed(ledId, "NATS", "Default");
+            }
         } else if (info.id == "tak_communication") {
             QJsonObject config = plugin->getConfig();
             if (config.contains("servers")) {
