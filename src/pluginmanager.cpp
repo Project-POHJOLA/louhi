@@ -250,7 +250,24 @@ void PluginManager::setupMenu(QMenuBar* menuBar)
                 menus[topMenu] = menuBar->addMenu(topMenu);
             }
 
-            if (entry.subMenus.isEmpty()) {
+            if (entry.addAsDirectAction) {
+                for (const QString& sub : entry.subMenus) {
+                    QAction* action = menus[topMenu]->addAction(sub);
+                    connect(action, &QAction::triggered, this, [this, plugin, sub, topMenu]() {
+                        if (sub == "Settings" || topMenu == tr("Settings")) {
+                            plugin->configure(nullptr);
+                        } else if (sub.startsWith("Show")) {
+                            emit plugin->showWidgetRequested();
+                        } else if (sub == "Connect") {
+                            emit plugin->statusChanged("connect");
+                        } else if (sub == "Disconnect") {
+                            emit plugin->statusChanged("disconnect");
+                        } else if (sub == tr("Basemap")) {
+                            plugin->handleToolbarAction("osgearth_basemap");
+                        }
+                    });
+                }
+            } else if (entry.subMenus.isEmpty()) {
                 menus[topMenu]->addAction(plugin->getPluginInfo().name,
                     this, [this, plugin]() {
                         plugin->configure(nullptr);

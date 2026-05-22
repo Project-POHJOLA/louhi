@@ -15,12 +15,9 @@
 #include <QDebug>
 
 MapSourcesDialog::MapSourcesDialog(const QList<MapSource>& customSources,
-                                   const QString& currentSourceName,
                                    QWidget* parent)
     : QDialog(parent)
     , m_customSources(customSources)
-    , m_currentSourceName(currentSourceName)
-    , m_selectedSourceName(currentSourceName)
 {
     setWindowTitle(tr("Map Sources"));
     setMinimumSize(500, 400);
@@ -32,20 +29,13 @@ QList<MapSource> MapSourcesDialog::customSources() const
     return m_customSources;
 }
 
-QString MapSourcesDialog::selectedSourceName() const
-{
-    return m_selectedSourceName;
-}
-
 void MapSourcesDialog::buildUi()
 {
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
 
     QLabel* infoLabel = new QLabel(
-        tr("Built-in sources:\n"
-        "  \xe2\x80\xa2 OSM Standard - OpenStreetMap standard tiles\n"
-        "  \xe2\x80\xa2 Carto Dark - CartoDB Dark Matter tiles\n"
-        "Custom XYZ/WMS sources can be added below."), this);
+        tr("Manage custom tile sources. Built-in sources (OSM Standard, Carto Dark)\n"
+        "are always available and can be selected from the basemap panel."), this);
     infoLabel->setWordWrap(true);
     mainLayout->addWidget(infoLabel);
 
@@ -70,8 +60,9 @@ void MapSourcesDialog::buildUi()
     connect(m_addXyzBtn, &QPushButton::clicked, this, &MapSourcesDialog::onAddXyz);
     connect(m_addWmsBtn, &QPushButton::clicked, this, &MapSourcesDialog::onAddWms);
     connect(m_removeBtn, &QPushButton::clicked, this, &MapSourcesDialog::onRemove);
-    connect(m_sourceList, &QListWidget::currentRowChanged,
-            this, &MapSourcesDialog::onSelectionChanged);
+    connect(m_sourceList, &QListWidget::currentRowChanged, this, [this]() {
+        m_removeBtn->setEnabled(m_sourceList->currentItem() != nullptr);
+    });
     connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
 
@@ -82,20 +73,6 @@ void MapSourcesDialog::refreshList()
 {
     m_sourceList->clear();
 
-    QListWidgetItem* osmItem = new QListWidgetItem("OSM Standard");
-    osmItem->setData(Qt::UserRole, "OSM Standard");
-    osmItem->setData(Qt::UserRole + 1, "builtin");
-    if (m_selectedSourceName == "OSM Standard")
-        osmItem->setSelected(true);
-    m_sourceList->addItem(osmItem);
-
-    QListWidgetItem* darkItem = new QListWidgetItem("Carto Dark");
-    darkItem->setData(Qt::UserRole, "Carto Dark");
-    darkItem->setData(Qt::UserRole + 1, "builtin");
-    if (m_selectedSourceName == "Carto Dark")
-        darkItem->setSelected(true);
-    m_sourceList->addItem(darkItem);
-
     for (int i = 0; i < m_customSources.size(); ++i) {
         const MapSource& src = m_customSources[i];
         QString label = QString("%1 [%2]").arg(src.name, src.type.toUpper());
@@ -103,8 +80,6 @@ void MapSourcesDialog::refreshList()
         item->setData(Qt::UserRole, src.name);
         item->setData(Qt::UserRole + 1, "custom");
         item->setData(Qt::UserRole + 2, i);
-        if (m_selectedSourceName == src.name)
-            item->setSelected(true);
         m_sourceList->addItem(item);
     }
 }
@@ -162,7 +137,6 @@ void MapSourcesDialog::onAddXyz()
         src.url = url;
         src.maxZoom = qBound(1, maxZoom, 22);
         m_customSources.append(src);
-        m_selectedSourceName = name;
         refreshList();
     }
 }
@@ -228,7 +202,6 @@ void MapSourcesDialog::onAddWms()
         src.styles = stylesEdit->text().trimmed();
         src.maxZoom = qBound(1, maxZoomEdit->text().toInt(), 22);
         m_customSources.append(src);
-        m_selectedSourceName = name;
         refreshList();
     }
 }
@@ -238,31 +211,9 @@ void MapSourcesDialog::onRemove()
     QListWidgetItem* item = m_sourceList->currentItem();
     if (!item) return;
 
-    if (item->data(Qt::UserRole + 1).toString() != "custom") {
-        QMessageBox::information(this, tr("Cannot Remove"),
-                                 tr("Built-in sources cannot be removed."));
-        return;
-    }
-
     int idx = item->data(Qt::UserRole + 2).toInt();
     if (idx >= 0 && idx < m_customSources.size()) {
-        MapSource removed = m_customSources[idx];
         m_customSources.removeAt(idx);
-
-        if (m_selectedSourceName == removed.name) {
-            m_selectedSourceName = "OSM Standard";
-        }
         refreshList();
-    }
-}
-
-void MapSourcesDialog::onSelectionChanged()
-{
-    QListWidgetItem* item = m_sourceList->currentItem();
-    m_removeBtn->setEnabled(item &&
-        item->data(Qt::UserRole + 1).toString() == "custom");
-
-    if (item) {
-        m_selectedSourceName = item->data(Qt::UserRole).toString();
     }
 }

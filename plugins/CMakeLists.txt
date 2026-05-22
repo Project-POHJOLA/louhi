@@ -98,6 +98,8 @@ if(osgEarth_FOUND)
         osgearthplugin.cpp
         osgearthmapwidget.h
         osgearthmapwidget.cpp
+        osgearthbasemapdock.h
+        osgearthbasemapdock.cpp
     )
 
     target_link_libraries(osgearthplugin

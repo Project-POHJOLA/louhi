@@ -231,6 +231,8 @@ void OsgEarthMapWidget::setSource(const MapSource& source)
         rebuildMapLayer();
         update();
     }
+
+    emit sourceChanged(m_currentSource.name);
 }
 
 void OsgEarthMapWidget::updateCamera()

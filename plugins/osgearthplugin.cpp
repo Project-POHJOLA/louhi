@@ -1,5 +1,6 @@
 #include "osgearthplugin.h"
 #include "osgearthmapwidget.h"
+#include "osgearthbasemapdock.h"
 #include "mapsourcesdialog.h"
 #include "tilecache.h"
 
@@ -10,6 +11,7 @@
 OsgEarthPlugin::OsgEarthPlugin(QObject* parent)
     : PluginInterface(parent)
     , m_mapWidget(nullptr)
+    , m_basemapDock(nullptr)
     , m_hasInitialPosition(false)
     , m_configLat(60.1699)
     , m_configLon(24.9384)
@@ -48,12 +50,40 @@ QVector<MenuEntry> OsgEarthPlugin::getMenuEntries() const
     viewEntry.subMenus = QStringList() << tr("Show 3D Map");
     entries.append(viewEntry);
 
+    MenuEntry basemapEntry;
+    basemapEntry.topMenu = tr("Map");
+    basemapEntry.subMenus = QStringList() << tr("Basemap");
+    basemapEntry.addAsDirectAction = true;
+    entries.append(basemapEntry);
+
     MenuEntry settingsEntry;
     settingsEntry.topMenu = tr("Settings");
     settingsEntry.subMenus = QStringList();
     entries.append(settingsEntry);
 
     return entries;
+}
+
+QVector<ToolbarEntry> OsgEarthPlugin::getToolbarEntries() const
+{
+    QVector<ToolbarEntry> entries;
+
+    ToolbarEntry btn;
+    btn.id = "osgearth_basemap";
+    btn.text = tr("Basemap");
+    btn.tooltip = tr("Select basemap for the globe");
+    btn.group = tr("Map");
+    entries.append(btn);
+
+    return entries;
+}
+
+void OsgEarthPlugin::handleToolbarAction(const QString& actionId)
+{
+    if (actionId == "osgearth_basemap" && m_basemapDock) {
+        m_basemapDock->show();
+        m_basemapDock->raise();
+    }
 }
 
 bool OsgEarthPlugin::load()
@@ -76,9 +106,35 @@ bool OsgEarthPlugin::initialize()
         qDebug() << "OsgEarth Plugin: Zoom changed to" << zoom;
     });
 
+    m_basemapDock = new BasemapDockWidget();
+    m_basemapDock->setObjectName("osgearthBasemapDock");
+
+    connect(m_basemapDock, &BasemapDockWidget::sourceSelected, this,
+        [this](const MapSource& source) {
+            m_mapWidget->setSource(source);
+        });
+
+    connect(m_mapWidget, &OsgEarthMapWidget::sourceChanged, this,
+        [this](const QString& sourceName) {
+            m_basemapDock->setActiveSource(sourceName);
+        });
+
     applyConfig();
 
     return true;
+}
+
+QList<MapSource> OsgEarthPlugin::currentCustomSources() const
+{
+    if (m_mapWidget)
+        return m_mapWidget->customSources();
+    return {};
+}
+
+void OsgEarthPlugin::updateBasemapDockSources()
+{
+    if (m_basemapDock)
+        m_basemapDock->setSources(currentCustomSources());
 }
 
 MapSource OsgEarthPlugin::configToMapSource(const QString& sourceName) const
@@ -154,6 +210,9 @@ void OsgEarthPlugin::applyConfig()
         m_mapWidget->setCustomSources(sources);
     }
 
+    updateBasemapDockSources();
+    m_basemapDock->setActiveSource(m_configSourceName);
+
     if (m_hasInitialPosition) {
         m_mapWidget->setCenter(m_configLat, m_configLon);
     }
@@ -175,6 +234,8 @@ bool OsgEarthPlugin::stop()
 bool OsgEarthPlugin::unload()
 {
     qDebug() << "OsgEarth Plugin: Unloading";
+    delete m_basemapDock;
+    m_basemapDock = nullptr;
     delete m_mapWidget;
     m_mapWidget = nullptr;
     m_hasInitialPosition = false;
@@ -186,42 +247,23 @@ QWidget* OsgEarthPlugin::getWidget()
     return m_mapWidget;
 }
 
+QVector<QDockWidget*> OsgEarthPlugin::getAdditionalDocks()
+{
+    QVector<QDockWidget*> docks;
+    if (m_basemapDock)
+        docks.append(m_basemapDock);
+    return docks;
+}
+
 void OsgEarthPlugin::configure(QWidget* parent)
 {
     if (!m_mapWidget) return;
 
-    MapSourcesDialog dialog(m_mapWidget->customSources(),
-                            m_mapWidget->source().name,
-                            parent);
+    MapSourcesDialog dialog(currentCustomSources(), parent);
 
     if (dialog.exec() == QDialog::Accepted) {
         m_mapWidget->setCustomSources(dialog.customSources());
-
-        QString selectedName = dialog.selectedSourceName();
-        if (selectedName == "OSM Standard") {
-            MapSource osm;
-            osm.name = "OSM Standard";
-            osm.type = "xyz";
-            osm.url = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
-            osm.maxZoom = 19;
-            osm.builtIn = true;
-            m_mapWidget->setSource(osm);
-        } else if (selectedName == "Carto Dark") {
-            MapSource dark;
-            dark.name = "Carto Dark";
-            dark.type = "xyz";
-            dark.url = "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png";
-            dark.maxZoom = 19;
-            dark.builtIn = true;
-            m_mapWidget->setSource(dark);
-        } else {
-            for (const MapSource& src : dialog.customSources()) {
-                if (src.name == selectedName) {
-                    m_mapWidget->setSource(src);
-                    break;
-                }
-            }
-        }
+        updateBasemapDockSources();
     }
 }
 

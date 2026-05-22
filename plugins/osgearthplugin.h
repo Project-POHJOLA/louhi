@@ -7,6 +7,7 @@
 #include <QtPlugin>
 
 class OsgEarthMapWidget;
+class BasemapDockWidget;
 
 class OsgEarthPlugin : public PluginInterface
 {
@@ -20,6 +21,8 @@ public:
 
     PluginInfo getPluginInfo() const override;
     QVector<MenuEntry> getMenuEntries() const override;
+    QVector<ToolbarEntry> getToolbarEntries() const override;
+    void handleToolbarAction(const QString& actionId) override;
 
     bool load() override;
     bool initialize() override;
@@ -28,6 +31,7 @@ public:
     bool unload() override;
 
     QWidget* getWidget() override;
+    QVector<QDockWidget*> getAdditionalDocks() override;
     void configure(QWidget* parent) override;
 
     QJsonObject getConfig() const override;
@@ -38,9 +42,12 @@ public:
 private:
     void applyConfig();
     MapSource configToMapSource(const QString& sourceName) const;
+    QList<MapSource> currentCustomSources() const;
+    void updateBasemapDockSources();
 
     PluginInfo m_info;
     OsgEarthMapWidget* m_mapWidget;
+    BasemapDockWidget* m_basemapDock;
     bool m_hasInitialPosition;
 
     double m_configLat;

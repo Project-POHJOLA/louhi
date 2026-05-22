@@ -92,17 +92,25 @@ int main(int argc, char *argv[])
                                 window.addDockWidget(Qt::RightDockWidgetArea, dock);
                             }
 
-                            pluginDocks[plugin] = dock;
-
                             QObject::connect(plugin, &PluginInterface::showWidgetRequested,
-                                [dock]() {
-                                    dock->show();
-                                    dock->raise();
-                                });
+                        [dock]() {
+                            dock->show();
+                            dock->raise();
+                        });
+                    }
+
+                    for (QDockWidget* additionalDock : plugin->getAdditionalDocks()) {
+                        additionalDock->setParent(&window);
+                        additionalDock->setAttribute(Qt::WA_DeleteOnClose, false);
+                        window.addDockWidget(Qt::RightDockWidgetArea, additionalDock);
+                        if (mapDock) {
+                            window.tabifyDockWidget(additionalDock, mapDock);
                         }
+                        additionalDock->hide();
                     }
                 }
             }
+        }
         }
 
         if (!window.restoreDockState() && mapDock) {

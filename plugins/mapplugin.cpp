@@ -197,38 +197,10 @@ void MapPlugin::configure(QWidget* parent)
 {
     if (!m_mapWidget) return;
 
-    MapSourcesDialog dialog(m_mapWidget->customSources(),
-                            m_mapWidget->source().name,
-                            parent);
+    MapSourcesDialog dialog(m_mapWidget->customSources(), parent);
 
     if (dialog.exec() == QDialog::Accepted) {
         m_mapWidget->setCustomSources(dialog.customSources());
-
-        QString selectedName = dialog.selectedSourceName();
-        if (selectedName == "OSM Standard") {
-            MapSource osm;
-            osm.name = "OSM Standard";
-            osm.type = "xyz";
-            osm.url = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
-            osm.maxZoom = 19;
-            osm.builtIn = true;
-            m_mapWidget->setSource(osm);
-        } else if (selectedName == "Carto Dark") {
-            MapSource dark;
-            dark.name = "Carto Dark";
-            dark.type = "xyz";
-            dark.url = "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png";
-            dark.maxZoom = 19;
-            dark.builtIn = true;
-            m_mapWidget->setSource(dark);
-        } else {
-            for (const MapSource& src : dialog.customSources()) {
-                if (src.name == selectedName) {
-                    m_mapWidget->setSource(src);
-                    break;
-                }
-            }
-        }
     }
 }
 

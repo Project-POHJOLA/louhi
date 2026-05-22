@@ -36,6 +36,7 @@ public:
 signals:
     void centerChanged(double lat, double lon);
     void zoomChanged(int zoom);
+    void sourceChanged(const QString& sourceName);
 
 protected:
     void initializeGL() override;

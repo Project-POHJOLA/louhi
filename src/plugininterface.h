@@ -8,6 +8,7 @@
 #include <QMenuBar>
 #include <QMap>
 #include <QJsonObject>
+#include <QDockWidget>
 
 enum class PluginType {
     Communication,
@@ -32,6 +33,7 @@ struct PluginInfo {
 struct MenuEntry {
     QString topMenu;
     QStringList subMenus;
+    bool addAsDirectAction = false;
 };
 
 struct ToolbarEntry {
@@ -62,6 +64,7 @@ public:
     virtual bool unload() = 0;
 
     virtual QWidget* getWidget() = 0;
+    virtual QVector<QDockWidget*> getAdditionalDocks() { return {}; }
     virtual void configure(QWidget* parent) = 0;
 
     virtual QJsonObject getConfig() const = 0;

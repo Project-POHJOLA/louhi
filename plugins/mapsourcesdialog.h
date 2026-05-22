@@ -18,17 +18,14 @@ class MapSourcesDialog : public QDialog
 
 public:
     explicit MapSourcesDialog(const QList<MapSource>& customSources,
-                              const QString& currentSourceName,
                               QWidget* parent = nullptr);
 
     QList<MapSource> customSources() const;
-    QString selectedSourceName() const;
 
 private slots:
     void onAddXyz();
     void onAddWms();
     void onRemove();
-    void onSelectionChanged();
 
 private:
     void buildUi();
@@ -36,8 +33,6 @@ private:
     bool validateXyzInput(const QString& url) const;
 
     QList<MapSource> m_customSources;
-    QString m_currentSourceName;
-    QString m_selectedSourceName;
 
     QListWidget* m_sourceList;
     QPushButton* m_addXyzBtn;
