@@ -93,9 +93,18 @@ bool MainWindow::restoreDockState()
     return false;
 }
 
+void MainWindow::clearPluginToolbars()
+{
+    for (QToolBar* tb : m_pluginToolbars) {
+        removeToolBar(tb);
+        delete tb;
+    }
+    m_pluginToolbars.clear();
+}
+
 void MainWindow::setupToolbar()
 {
-    m_mainToolBar->setVisible(true);
+    clearPluginToolbars();
     m_mainToolBar->clear();
 
     QMap<QString, QVector<ToolbarEntry>> grouped;
@@ -104,8 +113,15 @@ void MainWindow::setupToolbar()
     }
 
     for (auto it = grouped.begin(); it != grouped.end(); ++it) {
-        for (const ToolbarEntry& entry : it.value()) {
-            QAction* action = m_mainToolBar->addAction(entry.text);
+        const QString& groupName = it.key();
+        const QVector<ToolbarEntry>& entries = it.value();
+
+        QToolBar* tb = addToolBar(groupName.isEmpty() ? tr("Plugins") : groupName);
+        tb->setObjectName("pluginToolbar_" + groupName);
+        tb->setMovable(false);
+
+        for (const ToolbarEntry& entry : entries) {
+            QAction* action = tb->addAction(entry.text);
             action->setObjectName(entry.id);
             if (!entry.tooltip.isEmpty())
                 action->setToolTip(entry.tooltip);
@@ -130,13 +146,9 @@ void MainWindow::setupToolbar()
                 });
             }
         }
+
+        m_pluginToolbars.append(tb);
     }
-
-    m_mainToolBar->addSeparator();
-
-    QWidget* spacer = new QWidget;
-    spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    m_mainToolBar->addWidget(spacer);
 
     QAction* aboutAction = m_mainToolBar->addAction(tr("About"));
     aboutAction->setToolTip(tr("About LOUHI"));

@@ -38,10 +38,13 @@ public slots:
     void changeLanguage(const QString& langCode);
 
 private:
+    void clearPluginToolbars();
+
     PluginManager* m_pluginManager;
     ConfigManager* m_configManager;
     ConnectionLedManager* m_ledManager;
     QToolBar* m_mainToolBar;
+    QList<QToolBar*> m_pluginToolbars;
     QByteArray m_pendingDockState;
 };
 
