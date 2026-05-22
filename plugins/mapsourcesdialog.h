@@ -4,13 +4,13 @@
 #include <QDialog>
 #include <QList>
 #include <QVariantMap>
+#include "mapsources.h"
 
 class QListWidget;
 class QLineEdit;
 class QComboBox;
 class QStackedWidget;
 class QPushButton;
-struct MapSource;
 
 class MapSourcesDialog : public QDialog
 {

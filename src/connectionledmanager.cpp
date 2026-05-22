@@ -41,6 +41,14 @@ void ConnectionLedManager::removeLed(const QString& connectionId)
     m_leds.remove(connectionId);
 }
 
+void ConnectionLedManager::clearAllLeds()
+{
+    QList<QString> ids = m_leds.keys();
+    for (const QString& id : ids) {
+        removeLed(id);
+    }
+}
+
 void ConnectionLedManager::setLedState(const QString& connectionId, ConnectionStatusLed::ConnectionState state)
 {
     if (!m_leds.contains(connectionId)) {

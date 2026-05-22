@@ -26,9 +26,9 @@ LocationPlugin::LocationPlugin(QObject* parent)
     , m_useFallback(false)
 {
     m_info.id = "location_communication";
-    m_info.name = "Location";
+    m_info.name = tr("Location");
     m_info.version = "0.1";
-    m_info.description = "Location provider plugin - supports Serial GPS, GPSD, and manual entry with automatic failover";
+    m_info.description = tr("Location provider plugin - supports Serial GPS, GPSD, and manual entry with automatic failover");
     m_info.author = "LOUHI Team";
     m_info.type = PluginType::Communication;
     m_info.enabled = true;
@@ -71,12 +71,12 @@ QVector<MenuEntry> LocationPlugin::getMenuEntries() const
     QVector<MenuEntry> entries;
 
     MenuEntry commEntry;
-    commEntry.topMenu = "Communication";
-    commEntry.subMenus = QStringList() << "Connect" << "Disconnect";
+    commEntry.topMenu = tr("Communication");
+    commEntry.subMenus = QStringList() << tr("Connect") << tr("Disconnect");
     entries.append(commEntry);
 
     MenuEntry settingsEntry;
-    settingsEntry.topMenu = "Settings";
+    settingsEntry.topMenu = tr("Settings");
     settingsEntry.subMenus = QStringList();
     entries.append(settingsEntry);
 
@@ -383,18 +383,18 @@ void LocationPlugin::buildStatusWidget()
     m_statusWidget = new QWidget();
     m_mainLayout = new QVBoxLayout(m_statusWidget);
 
-    QGroupBox* statusGroup = new QGroupBox("Location Status", m_statusWidget);
+    QGroupBox* statusGroup = new QGroupBox(tr("Location Status"), m_statusWidget);
     QVBoxLayout* groupLayout = new QVBoxLayout(statusGroup);
 
-    m_providerLabel = new QLabel("Provider: Not configured", statusGroup);
-    m_statusLabel = new QLabel("Status: Not connected", statusGroup);
-    m_locationLabel = new QLabel("Location: N/A", statusGroup);
+    m_providerLabel = new QLabel(tr("Provider: Not configured"), statusGroup);
+    m_statusLabel = new QLabel(tr("Status: Not connected"), statusGroup);
+    m_locationLabel = new QLabel(tr("Location: N/A"), statusGroup);
 
     groupLayout->addWidget(m_providerLabel);
     groupLayout->addWidget(m_statusLabel);
     groupLayout->addWidget(m_locationLabel);
 
-    QPushButton* configureBtn = new QPushButton("Configure...", statusGroup);
+    QPushButton* configureBtn = new QPushButton(tr("Configure..."), statusGroup);
     groupLayout->addWidget(configureBtn);
 
     m_mainLayout->addWidget(statusGroup);
@@ -409,18 +409,18 @@ void LocationPlugin::updateStatusDisplay()
 {
     if (!m_statusWidget) return;
 
-    QString providerName = "None";
-    QString statusText = "Not connected";
-    QString locationText = "N/A";
+    QString providerName = tr("None");
+    QString statusText = tr("Not connected");
+    QString locationText = tr("N/A");
 
     if (m_activeProvider) {
         providerName = m_activeProvider->providerId();
         if (m_useFallback) {
-            providerName += " (fallback)";
+            providerName += tr(" (fallback)");
         }
 
         if (m_activeProvider->isConnected()) {
-            statusText = "Connected";
+            statusText = tr("Connected");
             LocationData loc = m_activeProvider->getCurrentLocation();
             if (loc.valid) {
                 locationText = QString("Lat: %1, Lon: %2, Alt: %3m")
@@ -428,18 +428,18 @@ void LocationPlugin::updateStatusDisplay()
                     .arg(loc.longitude, 0, 'f', 6)
                     .arg(loc.altitude, 0, 'f', 1);
             } else {
-                locationText = "No fix";
+                locationText = tr("No fix");
             }
         } else {
-            statusText = "Disconnected";
+            statusText = tr("Disconnected");
         }
     }
 
-    m_providerLabel->setText("Provider: " + providerName);
-    m_statusLabel->setText("Status: " + statusText);
-    m_locationLabel->setText("Location: " + locationText);
+    m_providerLabel->setText(tr("Provider: %1").arg(providerName));
+    m_statusLabel->setText(tr("Status: %1").arg(statusText));
+    m_locationLabel->setText(tr("Location: %1").arg(locationText));
 
-    QString connStatus = m_activeProvider && m_activeProvider->isConnected() ? "Connected" : "Disconnected";
+    QString connStatus = m_activeProvider && m_activeProvider->isConnected() ? tr("Connected") : tr("Disconnected");
     emit connectionStatusChanged("Location", connStatus);
 }
 

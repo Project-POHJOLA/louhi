@@ -128,6 +128,10 @@ void PluginManager::loadAllPlugins()
                     this, [this, plugin](const QString& connectionName, const QString& status) {
                         emit pluginConnectionStatusChanged(plugin->getPluginInfo().id, status);
                     });
+            connect(plugin, &PluginInterface::configChanged,
+                    this, [this, plugin]() {
+                        emit pluginConfigChanged(plugin->getPluginInfo().id);
+                    });
             qDebug() << "Loaded plugin:" << info.name;
         }
     }
@@ -212,6 +216,16 @@ void PluginManager::disablePlugin(const QString& pluginId)
     }
 }
 
+QVector<ToolbarEntry> PluginManager::collectToolbarEntries() const
+{
+    QVector<ToolbarEntry> entries;
+    for (const LoadedPlugin& loaded : m_plugins) {
+        if (!loaded.plugin || !loaded.enabled) continue;
+        entries.append(loaded.plugin->getToolbarEntries());
+    }
+    return entries;
+}
+
 void PluginManager::setupMenu(QMenuBar* menuBar)
 {
     QMap<QString, QMenu*> menus;
@@ -246,7 +260,7 @@ void PluginManager::setupMenu(QMenuBar* menuBar)
                 for (const QString& sub : entry.subMenus) {
                     QAction* action = subMenu->addAction(sub);
                     connect(action, &QAction::triggered, this, [this, plugin, sub, topMenu]() {
-                        if (topMenu == "Settings") {
+                        if (sub == "Settings" || topMenu == tr("Settings")) {
                             plugin->configure(nullptr);
                         } else if (sub.startsWith("Show")) {
                             emit plugin->showWidgetRequested();
@@ -261,21 +275,23 @@ void PluginManager::setupMenu(QMenuBar* menuBar)
         }
     }
 
+    QString settingsLabel = tr("Settings");
     bool hasSettings = false;
     for (QAction* action : menuBar->actions()) {
-        if (action->text() == "Settings") {
+        if (action->text() == settingsLabel) {
             hasSettings = true;
             break;
         }
     }
 
     if (!hasSettings) {
-        QAction* settingsAction = menuBar->addAction("Settings");
-        connect(settingsAction, &QAction::triggered, this, [this]() {
-            for (PluginInterface* plugin : getEnabledPlugins()) {
+        QMenu* settingsMenu = menuBar->addMenu(settingsLabel);
+        for (PluginInterface* plugin : getEnabledPlugins()) {
+            QAction* sa = settingsMenu->addAction(plugin->getPluginInfo().name);
+            connect(sa, &QAction::triggered, this, [this, plugin]() {
                 plugin->configure(nullptr);
-            }
-        });
+            });
+        }
     }
 }
 

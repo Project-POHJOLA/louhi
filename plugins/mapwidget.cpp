@@ -1,4 +1,5 @@
 #include "mapwidget.h"
+#include "tilecache.h"
 #include "version.h"
 #include <QPainter>
 #include <QMouseEvent>
@@ -307,6 +308,16 @@ void MapWidget::ensureTiles()
             neededTiles.insert(key);
 
             if (!m_cache.contains(key) && !m_pendingTileRequests.contains(key)) {
+                QByteArray cached = TileCache::loadTile(m_currentSource.name, m_zoom, wrappedTx, ty);
+                if (!cached.isEmpty()) {
+                    QPixmap pixmap;
+                    if (pixmap.loadFromData(cached)) {
+                        m_cache[key] = pixmap;
+                        m_cacheOrder.removeOne(key);
+                        m_cacheOrder.append(key);
+                        continue;
+                    }
+                }
                 if (m_currentSource.type == "xyz") {
                     requestTile(m_zoom, wrappedTx, ty);
                 } else if (m_currentSource.type == "wms") {
@@ -365,6 +376,7 @@ void MapWidget::requestTile(int z, int x, int y)
                 m_cache[key] = pixmap;
                 m_cacheOrder.removeOne(key);
                 m_cacheOrder.append(key);
+                TileCache::saveTile(m_currentSource.name, key.z, key.x, key.y, data);
                 pruneCache();
                 update();
             }
@@ -439,6 +451,7 @@ void MapWidget::requestWmsTile(int z, int x, int y)
                 m_cache[key] = pixmap;
                 m_cacheOrder.removeOne(key);
                 m_cacheOrder.append(key);
+                TileCache::saveTile(m_currentSource.name, key.z, key.x, key.y, data);
                 pruneCache();
                 update();
             }

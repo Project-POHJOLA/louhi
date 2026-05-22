@@ -34,6 +34,14 @@ struct MenuEntry {
     QStringList subMenus;
 };
 
+struct ToolbarEntry {
+    QString id;
+    QString text;
+    QString iconPath;
+    QString tooltip;
+    QString group;
+};
+
 class PluginInterface : public QObject
 {
     Q_OBJECT
@@ -44,6 +52,8 @@ public:
 
     virtual PluginInfo getPluginInfo() const = 0;
     virtual QVector<MenuEntry> getMenuEntries() const = 0;
+    virtual QVector<ToolbarEntry> getToolbarEntries() const { return {}; }
+    virtual void handleToolbarAction(const QString& actionId) { Q_UNUSED(actionId); }
 
     virtual bool load() = 0;
     virtual bool initialize() = 0;
@@ -70,6 +80,7 @@ signals:
     void statusChanged(const QString& status);
     void showWidgetRequested();
     void connectionStatusChanged(const QString& connectionName, const QString& status);
+    void configChanged();
 };
 
 #define PluginInterface_iid "com.louhi.plugininterface/1.0"

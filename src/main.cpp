@@ -3,8 +3,28 @@
 #include <QDebug>
 #include <QDockWidget>
 #include <QIcon>
+#include <QTranslator>
+#include <QLibraryInfo>
+#include <QFile>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include "mainwindow.h"
+#include "configmanager.h"
 #include "plugininterface.h"
+
+static QString translationDir()
+{
+    QStringList dirs = {
+        QCoreApplication::applicationDirPath() + "/translations",
+        QCoreApplication::applicationDirPath() + "/../translations",
+        QCoreApplication::applicationDirPath() + "/../share/louhi/translations",
+        "translations"
+    };
+    for (const QString& d : dirs) {
+        if (QDir(d).exists()) return d;
+    }
+    return QString();
+}
 
 int main(int argc, char *argv[])
 {
@@ -12,6 +32,29 @@ int main(int argc, char *argv[])
     app.setApplicationName("LOUHI");
     app.setApplicationVersion("0.1");
     app.setWindowIcon(QIcon(":/assets/louhi_icon.png"));
+
+    QTranslator qtTranslator;
+    qtTranslator.load("qt_" + QLocale::system().name(),
+                      QLibraryInfo::location(QLibraryInfo::TranslationsPath));
+    app.installTranslator(&qtTranslator);
+
+    QTranslator appTranslator;
+    QString lang;
+    QFile configFile(ConfigManager::defaultConfigPath());
+    if (configFile.open(QIODevice::ReadOnly)) {
+        QJsonDocument doc = QJsonDocument::fromJson(configFile.readAll());
+        QJsonObject appCfg = doc.object().value("app").toObject();
+        lang = appCfg.value("language").toString();
+        configFile.close();
+    }
+
+    QString tDir = translationDir();
+    if (!lang.isEmpty()) {
+        appTranslator.load("louhi_" + lang, tDir);
+    } else {
+        appTranslator.load(QLocale(), "louhi", "_", tDir);
+    }
+    app.installTranslator(&appTranslator);
 
     QString pluginPath = QCoreApplication::applicationDirPath() + "/plugins";
     qDebug() << "Plugin directory:" << pluginPath;
@@ -27,9 +70,11 @@ int main(int argc, char *argv[])
         QDockWidget* mapDock = nullptr;
 
         for (PluginInterface* plugin : window.getPluginManager()->getEnabledPlugins()) {
+            PluginInfo info = plugin->getPluginInfo();
+            QJsonObject pluginConfig = window.getConfigManager()->getPluginConfig(info.id);
+            plugin->setConfig(pluginConfig);
             if (plugin->initialize()) {
                 if (plugin->start()) {
-                    PluginInfo info = plugin->getPluginInfo();
                     if (info.type == PluginType::Screen || info.type == PluginType::Map) {
                         QWidget* widget = plugin->getWidget();
                         if (widget) {
@@ -65,9 +110,11 @@ int main(int argc, char *argv[])
         }
 
         window.getPluginManager()->setupMenu(window.menuBar());
+        window.setupLanguageMenu();
         window.setupConnectionLeds();
+        window.setupToolbar();
 
-        QAction* pluginMgrAction = window.menuBar()->addAction("Plugin Manager");
+        QAction* pluginMgrAction = window.menuBar()->addAction(MainWindow::tr("Plugin Manager"));
         QObject::connect(pluginMgrAction, &QAction::triggered, &window, &MainWindow::showPluginManager);
     } else {
         qWarning() << "Plugin directory not found:" << pluginPath;

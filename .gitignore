@@ -1,3 +1,6 @@
-AGENTS.md
 build/
 Louhi.app/
+AGENTS.md
+.opencode
+deps/OpenSceneGraph/
+deps/osgearth/

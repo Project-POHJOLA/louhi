@@ -19,9 +19,9 @@ NatsPlugin::NatsPlugin(QObject* parent)
     , m_serverStatusList(nullptr)
 {
     m_info.id = "nats_communication";
-    m_info.name = "NATS Communication";
+    m_info.name = tr("NATS Communication");
     m_info.version = "0.1";
-    m_info.description = "NATS transport plugin - subscribes to topics requested by other plugins";
+    m_info.description = tr("NATS transport plugin - subscribes to topics requested by other plugins");
     m_info.author = "LOUHI Team";
     m_info.type = PluginType::Communication;
     m_info.enabled = true;
@@ -62,12 +62,12 @@ QVector<MenuEntry> NatsPlugin::getMenuEntries() const
 {
     QVector<MenuEntry> entries;
     MenuEntry commEntry;
-    commEntry.topMenu = "Communication";
-    commEntry.subMenus = QStringList() << "Connect" << "Disconnect";
+    commEntry.topMenu = tr("Communication");
+    commEntry.subMenus = QStringList() << tr("Connect") << tr("Disconnect");
     entries.append(commEntry);
 
     MenuEntry settingsEntry;
-    settingsEntry.topMenu = "Settings";
+    settingsEntry.topMenu = tr("Settings");
     settingsEntry.subMenus = QStringList();
     entries.append(settingsEntry);
 
@@ -193,6 +193,7 @@ void NatsPlugin::configure(QWidget* parent)
 
         m_serverConfigs = newConfigs;
         updateStatusDisplay();
+        emit configChanged();
     }
 }
 
@@ -277,16 +278,16 @@ void NatsPlugin::buildStatusWidget()
     m_statusWidget = new QWidget();
     m_mainLayout = new QVBoxLayout(m_statusWidget);
 
-    QGroupBox* statusGroup = new QGroupBox("NATS Server Connections", m_statusWidget);
+    QGroupBox* statusGroup = new QGroupBox(tr("NATS Server Connections"), m_statusWidget);
     QVBoxLayout* groupLayout = new QVBoxLayout(statusGroup);
 
     m_serverStatusList = new QListWidget(statusGroup);
     m_serverStatusList->setSelectionMode(QAbstractItemView::NoSelection);
 
     QHBoxLayout* btnLayout = new QHBoxLayout();
-    QPushButton* connectAllBtn = new QPushButton("Connect All", statusGroup);
-    QPushButton* disconnectAllBtn = new QPushButton("Disconnect All", statusGroup);
-    QPushButton* configureBtn = new QPushButton("Configure...", statusGroup);
+    QPushButton* connectAllBtn = new QPushButton(tr("Connect All"), statusGroup);
+    QPushButton* disconnectAllBtn = new QPushButton(tr("Disconnect All"), statusGroup);
+    QPushButton* configureBtn = new QPushButton(tr("Configure..."), statusGroup);
     btnLayout->addWidget(connectAllBtn);
     btnLayout->addWidget(disconnectAllBtn);
     btnLayout->addStretch();
@@ -334,20 +335,20 @@ void NatsPlugin::updateStatusDisplay()
             NatsClient* client = m_clients[config.id];
             if (client->isConnected()) {
                 icon = "[+]";
-                statusText = QString("%1 %2 - Connected to %3:%4")
+                statusText = QString("%1 %2 - " + tr("Connected to %3:%4"))
                     .arg(icon)
                     .arg(config.name)
                     .arg(config.serverUrl)
                     .arg(config.port);
             } else {
                 icon = "[-]";
-                statusText = QString("%1 %2 - Disconnected")
+                statusText = QString("%1 %2 - " + tr("Disconnected"))
                     .arg(icon)
                     .arg(config.name);
             }
         } else {
             icon = "[ ]";
-            statusText = QString("%1 %2 - Not initialized")
+            statusText = QString("%1 %2 - " + tr("Not initialized"))
                 .arg(icon)
                 .arg(config.name);
         }

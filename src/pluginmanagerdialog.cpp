@@ -14,27 +14,27 @@ PluginManagerDialog::PluginManagerDialog(PluginManager* pluginManager, QWidget* 
     : QDialog(parent)
     , m_pluginManager(pluginManager)
 {
-    setWindowTitle("Plugin Manager");
+    setWindowTitle(tr("Plugin Manager"));
     setMinimumSize(600, 400);
 
     QVBoxLayout* layout = new QVBoxLayout(this);
 
-    QLabel* title = new QLabel("Manage Plugins", this);
+    QLabel* title = new QLabel(tr("Manage Plugins"), this);
     title->setStyleSheet("font-weight: bold; font-size: 14pt;");
     layout->addWidget(title);
 
     m_table = new QTableWidget(this);
     m_table->setColumnCount(4);
-    m_table->setHorizontalHeaderLabels({"Name", "Version", "Type", "Enabled"});
+    m_table->setHorizontalHeaderLabels({tr("Name"), tr("Version"), tr("Type"), tr("Enabled")});
     m_table->horizontalHeader()->setStretchLastSection(true);
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     layout->addWidget(m_table);
 
     QHBoxLayout* buttonLayout = new QHBoxLayout();
-    QPushButton* enableBtn = new QPushButton("Enable", this);
-    QPushButton* disableBtn = new QPushButton("Disable", this);
-    QPushButton* infoBtn = new QPushButton("Info", this);
-    QPushButton* closeBtn = new QPushButton("Close", this);
+    QPushButton* enableBtn = new QPushButton(tr("Enable"), this);
+    QPushButton* disableBtn = new QPushButton(tr("Disable"), this);
+    QPushButton* infoBtn = new QPushButton(tr("Info"), this);
+    QPushButton* closeBtn = new QPushButton(tr("Close"), this);
 
     buttonLayout->addWidget(enableBtn);
     buttonLayout->addWidget(disableBtn);
@@ -95,16 +95,16 @@ void PluginManagerDialog::showInfo()
 
             QLabel* authorLabel = new QLabel(info.author, dialog);
             authorLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
-            form->addRow("Author:", authorLabel);
+            form->addRow(tr("Author:"), authorLabel);
 
             QLabel* descLabel = new QLabel(info.description, dialog);
             descLabel->setWordWrap(true);
             descLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
-            form->addRow("Description:", descLabel);
+            form->addRow(tr("Description:"), descLabel);
 
             layout->addLayout(form);
 
-            QPushButton* closeBtn = new QPushButton("Close", dialog);
+            QPushButton* closeBtn = new QPushButton(tr("Close"), dialog);
             connect(closeBtn, &QPushButton::clicked, dialog, &QDialog::accept);
             layout->addWidget(closeBtn, 0, Qt::AlignRight);
 
@@ -132,14 +132,14 @@ void PluginManagerDialog::loadPlugins()
 
         QString typeStr;
         switch (info.type) {
-            case PluginType::Communication: typeStr = "Communication"; break;
-            case PluginType::Map: typeStr = "Map"; break;
-            case PluginType::Screen: typeStr = "Screen"; break;
+            case PluginType::Communication: typeStr = tr("Communication"); break;
+            case PluginType::Map: typeStr = tr("Map"); break;
+            case PluginType::Screen: typeStr = tr("Screen"); break;
         }
         m_table->setItem(row, 2, new QTableWidgetItem(typeStr));
 
         QTableWidgetItem* enabledItem = new QTableWidgetItem(
-            m_pluginManager->getEnabledPlugins().contains(plugin) ? "Yes" : "No");
+            m_pluginManager->getEnabledPlugins().contains(plugin) ? tr("Yes") : tr("No"));
         m_table->setItem(row, 3, enabledItem);
     }
 }

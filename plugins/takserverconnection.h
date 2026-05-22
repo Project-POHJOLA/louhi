@@ -19,6 +19,7 @@ struct TakServerConfig {
     int port;
     QString certFilePath;
     QString certPassword;
+    QByteArray certData;
     QString callsign;
     QString color;
     QString role;

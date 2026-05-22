@@ -15,6 +15,7 @@ public:
 
     void addLed(const QString& connectionId, const QString& connectionType, const QString& connectionName);
     void removeLed(const QString& connectionId);
+    void clearAllLeds();
     void setLedState(const QString& connectionId, ConnectionStatusLed::ConnectionState state);
 
 public slots:

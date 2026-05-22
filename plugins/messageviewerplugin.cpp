@@ -19,9 +19,9 @@ MessageViewerPlugin::MessageViewerPlugin(QObject* parent)
     , m_maxMessages(100)
 {
     m_info.id = "message_viewer";
-    m_info.name = "Message Viewer";
+    m_info.name = tr("Message Viewer");
     m_info.version = "0.1";
-    m_info.description = "Screen plugin for displaying all messages from the plugin message bus";
+    m_info.description = tr("Screen plugin for displaying all messages from the plugin message bus");
     m_info.author = "LOUHI Team";
     m_info.type = PluginType::Screen;
     m_info.enabled = true;
@@ -45,8 +45,8 @@ QVector<MenuEntry> MessageViewerPlugin::getMenuEntries() const
 {
     QVector<MenuEntry> entries;
     MenuEntry entry;
-    entry.topMenu = "View";
-    entry.subMenus = QStringList() << "Show Message Viewer" << "Clear Messages";
+    entry.topMenu = tr("View");
+    entry.subMenus = QStringList() << tr("Show Message Viewer") << tr("Clear Messages");
     entries.append(entry);
     return entries;
 }
@@ -64,26 +64,26 @@ bool MessageViewerPlugin::initialize()
     m_widget = new QWidget();
     QVBoxLayout* layout = new QVBoxLayout(m_widget);
 
-    QLabel* titleLabel = new QLabel("NATS Messages", m_widget);
+    QLabel* titleLabel = new QLabel(tr("NATS Messages"), m_widget);
     titleLabel->setStyleSheet("font-weight: bold; font-size: 14pt;");
     layout->addWidget(titleLabel);
 
     QHBoxLayout* buttonLayout = new QHBoxLayout();
-    QPushButton* clearBtn = new QPushButton("Clear", m_widget);
+    QPushButton* clearBtn = new QPushButton(tr("Clear"), m_widget);
     buttonLayout->addWidget(clearBtn);
     buttonLayout->addStretch();
     layout->addLayout(buttonLayout);
 
     connect(clearBtn, &QPushButton::clicked, this, &MessageViewerPlugin::clearMessages);
 
-    QLabel* topicLabel = new QLabel("Topic Subscriptions:", m_widget);
+    QLabel* topicLabel = new QLabel(tr("Topic Subscriptions:"), m_widget);
     layout->addWidget(topicLabel);
 
     QHBoxLayout* topicLayout = new QHBoxLayout();
     QLineEdit* topicInput = new QLineEdit(m_widget);
-    topicInput->setPlaceholderText("Enter topic (e.g., >, mil.*, mil.air.*)");
-    QPushButton* addTopicBtn = new QPushButton("Add", m_widget);
-    QPushButton* removeTopicBtn = new QPushButton("Remove", m_widget);
+    topicInput->setPlaceholderText(tr("Enter topic (e.g., >, mil.*, mil.air.*)"));
+    QPushButton* addTopicBtn = new QPushButton(tr("Add"), m_widget);
+    QPushButton* removeTopicBtn = new QPushButton(tr("Remove"), m_widget);
     topicLayout->addWidget(topicInput);
     topicLayout->addWidget(addTopicBtn);
     topicLayout->addWidget(removeTopicBtn);
@@ -116,7 +116,7 @@ bool MessageViewerPlugin::initialize()
 
     m_detailView = new QTextEdit(m_widget);
     m_detailView->setReadOnly(true);
-    m_detailView->setPlaceholderText("Select a message to view details...");
+    m_detailView->setPlaceholderText(tr("Select a message to view details..."));
     splitter->addWidget(m_detailView);
 
     splitter->setSizes(QList<int>() << 150 << 200);

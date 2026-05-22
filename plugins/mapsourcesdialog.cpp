@@ -1,5 +1,5 @@
 #include "mapsourcesdialog.h"
-#include "mapwidget.h"
+#include "mapsources.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -22,7 +22,7 @@ MapSourcesDialog::MapSourcesDialog(const QList<MapSource>& customSources,
     , m_currentSourceName(currentSourceName)
     , m_selectedSourceName(currentSourceName)
 {
-    setWindowTitle("Map Sources");
+    setWindowTitle(tr("Map Sources"));
     setMinimumSize(500, 400);
     buildUi();
 }
@@ -42,10 +42,10 @@ void MapSourcesDialog::buildUi()
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
 
     QLabel* infoLabel = new QLabel(
-        "Built-in sources:\n"
+        tr("Built-in sources:\n"
         "  \xe2\x80\xa2 OSM Standard - OpenStreetMap standard tiles\n"
         "  \xe2\x80\xa2 Carto Dark - CartoDB Dark Matter tiles\n"
-        "Custom XYZ/WMS sources can be added below.", this);
+        "Custom XYZ/WMS sources can be added below."), this);
     infoLabel->setWordWrap(true);
     mainLayout->addWidget(infoLabel);
 
@@ -53,9 +53,9 @@ void MapSourcesDialog::buildUi()
     mainLayout->addWidget(m_sourceList);
 
     QHBoxLayout* btnLayout = new QHBoxLayout();
-    m_addXyzBtn = new QPushButton("Add XYZ Source", this);
-    m_addWmsBtn = new QPushButton("Add WMS Source", this);
-    m_removeBtn = new QPushButton("Remove", this);
+    m_addXyzBtn = new QPushButton(tr("Add XYZ Source"), this);
+    m_addWmsBtn = new QPushButton(tr("Add WMS Source"), this);
+    m_removeBtn = new QPushButton(tr("Remove"), this);
     m_removeBtn->setEnabled(false);
     btnLayout->addWidget(m_addXyzBtn);
     btnLayout->addWidget(m_addWmsBtn);
@@ -117,20 +117,20 @@ bool MapSourcesDialog::validateXyzInput(const QString& url) const
 void MapSourcesDialog::onAddXyz()
 {
     QDialog dialog(this);
-    dialog.setWindowTitle("Add XYZ Tile Source");
+    dialog.setWindowTitle(tr("Add XYZ Tile Source"));
     QFormLayout form(&dialog);
 
     QLineEdit* nameEdit = new QLineEdit(&dialog);
-    nameEdit->setPlaceholderText("My XYZ Source");
-    form.addRow("Name:", nameEdit);
+    nameEdit->setPlaceholderText(tr("My XYZ Source"));
+    form.addRow(tr("Name:"), nameEdit);
 
     QLineEdit* urlEdit = new QLineEdit(&dialog);
-    urlEdit->setPlaceholderText("https://example.com/tiles/{z}/{x}/{y}.png");
-    form.addRow("URL Template:", urlEdit);
+    urlEdit->setPlaceholderText(tr("https://example.com/tiles/{z}/{x}/{y}.png"));
+    form.addRow(tr("URL Template:"), urlEdit);
 
     QLineEdit* maxZoomEdit = new QLineEdit(&dialog);
     maxZoomEdit->setText("19");
-    form.addRow("Max Zoom:", maxZoomEdit);
+    form.addRow(tr("Max Zoom:"), maxZoomEdit);
 
     QDialogButtonBox* buttons = new QDialogButtonBox(
         QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
@@ -145,14 +145,14 @@ void MapSourcesDialog::onAddXyz()
         int maxZoom = maxZoomEdit->text().toInt();
 
         if (name.isEmpty() || url.isEmpty()) {
-            QMessageBox::warning(this, "Invalid Input",
-                                 "Name and URL template are required.");
+            QMessageBox::warning(this, tr("Invalid Input"),
+                                 tr("Name and URL template are required."));
             return;
         }
 
         if (!validateXyzInput(url)) {
-            QMessageBox::warning(this, "Invalid URL",
-                                 "URL must contain {z}, {x}, and {y} placeholders.");
+            QMessageBox::warning(this, tr("Invalid URL"),
+                                 tr("URL must contain {z}, {x}, and {y} placeholders."));
             return;
         }
 
@@ -170,35 +170,35 @@ void MapSourcesDialog::onAddXyz()
 void MapSourcesDialog::onAddWms()
 {
     QDialog dialog(this);
-    dialog.setWindowTitle("Add WMS Tile Source");
+    dialog.setWindowTitle(tr("Add WMS Tile Source"));
     QFormLayout form(&dialog);
 
     QLineEdit* nameEdit = new QLineEdit(&dialog);
-    nameEdit->setPlaceholderText("My WMS Source");
-    form.addRow("Name:", nameEdit);
+    nameEdit->setPlaceholderText(tr("My WMS Source"));
+    form.addRow(tr("Name:"), nameEdit);
 
     QLineEdit* urlEdit = new QLineEdit(&dialog);
-    urlEdit->setPlaceholderText("http://example.com/wms");
-    form.addRow("Base URL:", urlEdit);
+    urlEdit->setPlaceholderText(tr("http://example.com/wms"));
+    form.addRow(tr("Base URL:"), urlEdit);
 
     QLineEdit* layersEdit = new QLineEdit(&dialog);
-    layersEdit->setPlaceholderText("layer1,layer2");
-    form.addRow("Layers:", layersEdit);
+    layersEdit->setPlaceholderText(tr("layer1,layer2"));
+    form.addRow(tr("Layers:"), layersEdit);
 
     QLineEdit* formatEdit = new QLineEdit(&dialog);
     formatEdit->setText("image/png");
-    form.addRow("Format:", formatEdit);
+    form.addRow(tr("Format:"), formatEdit);
 
     QLineEdit* crsEdit = new QLineEdit(&dialog);
     crsEdit->setText("EPSG:3857");
-    form.addRow("CRS:", crsEdit);
+    form.addRow(tr("CRS:"), crsEdit);
 
     QLineEdit* stylesEdit = new QLineEdit(&dialog);
-    form.addRow("Styles:", stylesEdit);
+    form.addRow(tr("Styles:"), stylesEdit);
 
     QLineEdit* maxZoomEdit = new QLineEdit(&dialog);
     maxZoomEdit->setText("18");
-    form.addRow("Max Zoom:", maxZoomEdit);
+    form.addRow(tr("Max Zoom:"), maxZoomEdit);
 
     QDialogButtonBox* buttons = new QDialogButtonBox(
         QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
@@ -213,8 +213,8 @@ void MapSourcesDialog::onAddWms()
         QString layers = layersEdit->text().trimmed();
 
         if (name.isEmpty() || url.isEmpty() || layers.isEmpty()) {
-            QMessageBox::warning(this, "Invalid Input",
-                                 "Name, Base URL, and Layers are required.");
+            QMessageBox::warning(this, tr("Invalid Input"),
+                                 tr("Name, Base URL, and Layers are required."));
             return;
         }
 
@@ -239,8 +239,8 @@ void MapSourcesDialog::onRemove()
     if (!item) return;
 
     if (item->data(Qt::UserRole + 1).toString() != "custom") {
-        QMessageBox::information(this, "Cannot Remove",
-                                 "Built-in sources cannot be removed.");
+        QMessageBox::information(this, tr("Cannot Remove"),
+                                 tr("Built-in sources cannot be removed."));
         return;
     }
 

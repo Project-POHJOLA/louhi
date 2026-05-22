@@ -1,4 +1,5 @@
 #include "configmanager.h"
+#include "croutil.h"
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -53,6 +54,13 @@ bool ConfigManager::loadConfig(const QString& filePath)
     QJsonObject root = doc.object();
     m_appConfig = root.value("app").toObject();
     m_pluginConfigs = root.value("plugins").toObject();
+    m_sharedConfig = root.value("shared").toObject();
+
+    for (auto it = m_pluginConfigs.begin(); it != m_pluginConfigs.end(); ++it) {
+        QJsonObject pluginCfg = it.value().toObject();
+        CryUtil::decryptConfig(pluginCfg);
+        it.value() = pluginCfg;
+    }
 
     m_configFilePath = path;
     emit configLoaded();
@@ -69,9 +77,17 @@ bool ConfigManager::saveConfig(const QString& filePath)
         dir.mkpath(".");
     }
 
+    QJsonObject pluginConfigs = m_pluginConfigs;
+    for (auto it = pluginConfigs.begin(); it != pluginConfigs.end(); ++it) {
+        QJsonObject pluginCfg = it.value().toObject();
+        CryUtil::encryptConfig(pluginCfg);
+        it.value() = pluginCfg;
+    }
+
     QJsonObject root;
     root["app"] = m_appConfig;
-    root["plugins"] = m_pluginConfigs;
+    root["plugins"] = pluginConfigs;
+    root["shared"] = m_sharedConfig;
 
     QJsonDocument doc(root);
 
@@ -103,5 +119,16 @@ QJsonObject ConfigManager::getPluginConfig(const QString& pluginId) const
 void ConfigManager::setPluginConfig(const QString& pluginId, const QJsonObject& config)
 {
     m_pluginConfigs[pluginId] = config;
+    emit configChanged();
+}
+
+QJsonObject ConfigManager::getSharedConfig(const QString& key) const
+{
+    return m_sharedConfig.value(key).toObject();
+}
+
+void ConfigManager::setSharedConfig(const QString& key, const QJsonObject& config)
+{
+    m_sharedConfig[key] = config;
     emit configChanged();
 }

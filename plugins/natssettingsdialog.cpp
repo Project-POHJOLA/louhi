@@ -10,22 +10,22 @@ NatsSettingsDialog::NatsSettingsDialog(QWidget* parent)
     : QDialog(parent)
     , m_currentIndex(-1)
 {
-    setWindowTitle("NATS Communication Settings");
+    setWindowTitle(tr("NATS Communication Settings"));
     setMinimumSize(600, 400);
 
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
 
     QHBoxLayout* topLayout = new QHBoxLayout();
 
-    QGroupBox* serverListGroup = new QGroupBox("Servers", this);
+    QGroupBox* serverListGroup = new QGroupBox(tr("Servers"), this);
     QVBoxLayout* serverListLayout = new QVBoxLayout(serverListGroup);
 
     m_serverList = new QListWidget(serverListGroup);
     m_serverList->setSelectionMode(QAbstractItemView::SingleSelection);
 
     QHBoxLayout* listBtnLayout = new QHBoxLayout();
-    m_addBtn = new QPushButton("Add", serverListGroup);
-    m_removeBtn = new QPushButton("Remove", serverListGroup);
+    m_addBtn = new QPushButton(tr("Add"), serverListGroup);
+    m_removeBtn = new QPushButton(tr("Remove"), serverListGroup);
     m_removeBtn->setEnabled(false);
     listBtnLayout->addWidget(m_addBtn);
     listBtnLayout->addWidget(m_removeBtn);
@@ -36,27 +36,27 @@ NatsSettingsDialog::NatsSettingsDialog(QWidget* parent)
 
     topLayout->addWidget(serverListGroup, 1);
 
-    QGroupBox* configGroup = new QGroupBox("Server Configuration", this);
+    QGroupBox* configGroup = new QGroupBox(tr("Server Configuration"), this);
     QVBoxLayout* configLayout = new QVBoxLayout(configGroup);
 
     QFormLayout* formLayout = new QFormLayout();
 
     m_nameEdit = new QLineEdit(configGroup);
-    m_nameEdit->setPlaceholderText("My NATS Server");
-    formLayout->addRow("Name:", m_nameEdit);
+    m_nameEdit->setPlaceholderText(tr("My NATS Server"));
+    formLayout->addRow(tr("Name:"), m_nameEdit);
 
     m_urlEdit = new QLineEdit(configGroup);
-    m_urlEdit->setPlaceholderText("localhost or nats.example.com");
-    formLayout->addRow("Server URL:", m_urlEdit);
+    m_urlEdit->setPlaceholderText(tr("localhost or nats.example.com"));
+    formLayout->addRow(tr("Server URL:"), m_urlEdit);
 
     m_portSpin = new QSpinBox(configGroup);
     m_portSpin->setRange(1, 65535);
     m_portSpin->setValue(4222);
-    formLayout->addRow("Port:", m_portSpin);
+    formLayout->addRow(tr("Port:"), m_portSpin);
 
     configLayout->addLayout(formLayout);
 
-    m_autoConnectCheck = new QCheckBox("Auto-connect on startup", configGroup);
+    m_autoConnectCheck = new QCheckBox(tr("Auto-connect on startup"), configGroup);
     configLayout->addWidget(m_autoConnectCheck);
 
     configLayout->addStretch();
@@ -69,8 +69,8 @@ NatsSettingsDialog::NatsSettingsDialog(QWidget* parent)
     connect(m_removeBtn, &QPushButton::clicked, this, &NatsSettingsDialog::removeServer);
 
     QHBoxLayout* buttonLayout = new QHBoxLayout();
-    QPushButton* okBtn = new QPushButton("OK", this);
-    QPushButton* cancelBtn = new QPushButton("Cancel", this);
+    QPushButton* okBtn = new QPushButton(tr("OK"), this);
+    QPushButton* cancelBtn = new QPushButton(tr("Cancel"), this);
     buttonLayout->addStretch();
     buttonLayout->addWidget(okBtn);
     buttonLayout->addWidget(cancelBtn);
@@ -108,7 +108,7 @@ void NatsSettingsDialog::addServer()
 
     NatsServerConfig config;
     config.id = QString("nats_server_%1").arg(QDateTime::currentMSecsSinceEpoch());
-    config.name = "New Server";
+    config.name = tr("New Server");
     config.serverUrl = "localhost";
     config.port = 4222;
     config.autoConnect = false;
@@ -165,7 +165,7 @@ void NatsSettingsDialog::saveFormToCurrentServer()
     config.autoConnect = m_autoConnectCheck->isChecked();
 
     if (config.name.isEmpty()) {
-        config.name = config.serverUrl.isEmpty() ? "Unnamed Server" : config.serverUrl;
+        config.name = config.serverUrl.isEmpty() ? tr("Unnamed Server") : config.serverUrl;
     }
 
     updateServerListDisplay();

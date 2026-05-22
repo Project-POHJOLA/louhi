@@ -7,6 +7,7 @@
 #include <QStatusBar>
 #include <QDockWidget>
 #include <QAction>
+#include <QActionGroup>
 #include "pluginmanager.h"
 #include "configmanager.h"
 #include "pluginmanagerdialog.h"
@@ -26,16 +27,21 @@ public:
     PluginManager* getPluginManager() const { return m_pluginManager; }
 
     bool restoreDockState();
+    void setupToolbar();
 
 public slots:
     void showPluginManager();
+    void showAbout();
+    void onPluginConfigChanged(const QString& pluginId);
     void setupConnectionLeds();
+    void setupLanguageMenu();
+    void changeLanguage(const QString& langCode);
 
 private:
     PluginManager* m_pluginManager;
     ConfigManager* m_configManager;
     ConnectionLedManager* m_ledManager;
-    QAction* m_pluginManagerAction;
+    QToolBar* m_mainToolBar;
     QByteArray m_pendingDockState;
 };
 

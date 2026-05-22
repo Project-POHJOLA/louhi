@@ -1,0 +1,7 @@
+{
+    "IID": "com.louhi.plugininterface/1.0",
+    "Name": "OsgEarthMap",
+    "Description": "3D map plugin based on osgEarth with shared map sources and tile cache",
+    "Version": "0.1",
+    "Author": "LOUHI Team"
+}

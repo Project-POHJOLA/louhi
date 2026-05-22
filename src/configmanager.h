@@ -23,6 +23,9 @@ public:
     QJsonObject getPluginConfig(const QString& pluginId) const;
     void setPluginConfig(const QString& pluginId, const QJsonObject& config);
 
+    QJsonObject getSharedConfig(const QString& key) const;
+    void setSharedConfig(const QString& key, const QJsonObject& config);
+
     QString configFilePath() const { return m_configFilePath; }
 
     static QString defaultConfigPath();
@@ -36,6 +39,7 @@ private:
     QString m_configFilePath;
     QJsonObject m_appConfig;
     QJsonObject m_pluginConfigs;
+    QJsonObject m_sharedConfig;
 };
 
 #endif

@@ -4,27 +4,28 @@
 #include <QFormLayout>
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QFile>
 
 TakSettingsDialog::TakSettingsDialog(QWidget* parent)
     : QDialog(parent)
     , m_currentIndex(-1)
 {
-    setWindowTitle("TAK Communication Settings");
+    setWindowTitle(tr("TAK Communication Settings"));
     setMinimumSize(650, 500);
 
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
 
     QHBoxLayout* topLayout = new QHBoxLayout();
 
-    QGroupBox* serverListGroup = new QGroupBox("Servers", this);
+    QGroupBox* serverListGroup = new QGroupBox(tr("Servers"), this);
     QVBoxLayout* serverListLayout = new QVBoxLayout(serverListGroup);
 
     m_serverList = new QListWidget(serverListGroup);
     m_serverList->setSelectionMode(QAbstractItemView::SingleSelection);
 
     QHBoxLayout* listBtnLayout = new QHBoxLayout();
-    m_addBtn = new QPushButton("Add", serverListGroup);
-    m_removeBtn = new QPushButton("Remove", serverListGroup);
+    m_addBtn = new QPushButton(tr("Add"), serverListGroup);
+    m_removeBtn = new QPushButton(tr("Remove"), serverListGroup);
     m_removeBtn->setEnabled(false);
     listBtnLayout->addWidget(m_addBtn);
     listBtnLayout->addWidget(m_removeBtn);
@@ -35,75 +36,75 @@ TakSettingsDialog::TakSettingsDialog(QWidget* parent)
 
     topLayout->addWidget(serverListGroup, 1);
 
-    QGroupBox* configGroup = new QGroupBox("Server Configuration", this);
+    QGroupBox* configGroup = new QGroupBox(tr("Server Configuration"), this);
     QVBoxLayout* configLayout = new QVBoxLayout(configGroup);
 
     QFormLayout* formLayout = new QFormLayout();
 
     m_nameEdit = new QLineEdit(configGroup);
-    m_nameEdit->setPlaceholderText("My TAK Server");
-    formLayout->addRow("Name:", m_nameEdit);
+    m_nameEdit->setPlaceholderText(tr("My TAK Server"));
+    formLayout->addRow(tr("Name:"), m_nameEdit);
 
     m_addressEdit = new QLineEdit(configGroup);
-    m_addressEdit->setPlaceholderText("tak.example.com or 192.168.1.100");
-    formLayout->addRow("Address:", m_addressEdit);
+    m_addressEdit->setPlaceholderText(tr("tak.example.com or 192.168.1.100"));
+    formLayout->addRow(tr("Address:"), m_addressEdit);
 
     m_portSpin = new QSpinBox(configGroup);
     m_portSpin->setRange(1, 65535);
     m_portSpin->setValue(8089);
-    formLayout->addRow("Port:", m_portSpin);
+    formLayout->addRow(tr("Port:"), m_portSpin);
 
     configLayout->addLayout(formLayout);
 
-    QGroupBox* certGroup = new QGroupBox("Client Certificate (PKCS12)", configGroup);
+    QGroupBox* certGroup = new QGroupBox(tr("Client Certificate (PKCS12)"), configGroup);
     QVBoxLayout* certLayout = new QVBoxLayout(certGroup);
 
     QHBoxLayout* certPathLayout = new QHBoxLayout();
     m_certPathEdit = new QLineEdit(certGroup);
-    m_certPathEdit->setPlaceholderText("Path to .p12 or .pfx file");
+    m_certPathEdit->setPlaceholderText(tr("Path to .p12 or .pfx file"));
     m_certPathEdit->setReadOnly(true);
-    m_browseCertBtn = new QPushButton("Browse...", certGroup);
+    m_browseCertBtn = new QPushButton(tr("Browse..."), certGroup);
     certPathLayout->addWidget(m_certPathEdit);
     certPathLayout->addWidget(m_browseCertBtn);
     certLayout->addLayout(certPathLayout);
 
     m_certPasswordEdit = new QLineEdit(certGroup);
     m_certPasswordEdit->setEchoMode(QLineEdit::Password);
-    m_certPasswordEdit->setPlaceholderText("Certificate password (if encrypted)");
-    certLayout->addWidget(new QLabel("Password:", certGroup));
+    m_certPasswordEdit->setPlaceholderText(tr("Certificate password (if encrypted)"));
+    certLayout->addWidget(new QLabel(tr("Password:"), certGroup));
     certLayout->addWidget(m_certPasswordEdit);
 
     configLayout->addWidget(certGroup);
 
-    QGroupBox* identityGroup = new QGroupBox("Identity", configGroup);
+    QGroupBox* identityGroup = new QGroupBox(tr("Identity"), configGroup);
     QFormLayout* identityLayout = new QFormLayout(identityGroup);
 
     m_callsignEdit = new QLineEdit(identityGroup);
-    m_callsignEdit->setPlaceholderText("Your callsign");
-    identityLayout->addRow("Callsign:", m_callsignEdit);
+    m_callsignEdit->setPlaceholderText(tr("Your callsign"));
+    identityLayout->addRow(tr("Callsign:"), m_callsignEdit);
 
     m_cotTypeEdit = new QLineEdit(identityGroup);
-    m_cotTypeEdit->setPlaceholderText("a-f-G-U");
-    identityLayout->addRow("CoT Type:", m_cotTypeEdit);
+    m_cotTypeEdit->setPlaceholderText(tr("a-f-G-U"));
+    identityLayout->addRow(tr("CoT Type:"), m_cotTypeEdit);
 
     m_colorCombo = new QComboBox(identityGroup);
-    m_colorCombo->addItems({"White", "Yellow", "Orange", "Magenta", "Red", "Maroon", "Purple", "Dark Blue", "Blue", "Cyan", "Teal", "Green", "Dark Green", "Brown"});
-    identityLayout->addRow("Color:", m_colorCombo);
+    m_colorCombo->addItems({tr("White"), tr("Yellow"), tr("Orange"), tr("Magenta"), tr("Red"), tr("Maroon"), tr("Purple"), tr("Dark Blue"), tr("Blue"), tr("Cyan"), tr("Teal"), tr("Green"), tr("Dark Green"), tr("Brown")});
+    identityLayout->addRow(tr("Color:"), m_colorCombo);
 
     m_roleCombo = new QComboBox(identityGroup);
     m_roleCombo->addItems({
-        "Team Member", "Team Lead", "HQ", "Airborne", "Fixed Wing",
-        "Rotary Wing", "Medic", "Forward Observer", "Sniper",
-        "RTO", "Corpsman", "Engineer", "Leader", "Point of Contact"
+        tr("Team Member"), tr("Team Lead"), tr("HQ"), tr("Airborne"), tr("Fixed Wing"),
+        tr("Rotary Wing"), tr("Medic"), tr("Forward Observer"), tr("Sniper"),
+        tr("RTO"), tr("Corpsman"), tr("Engineer"), tr("Leader"), tr("Point of Contact")
     });
-    identityLayout->addRow("Role:", m_roleCombo);
+    identityLayout->addRow(tr("Role:"), m_roleCombo);
 
     configLayout->addWidget(identityGroup);
 
-    m_autoConnectCheck = new QCheckBox("Auto-connect on startup", configGroup);
+    m_autoConnectCheck = new QCheckBox(tr("Auto-connect on startup"), configGroup);
     configLayout->addWidget(m_autoConnectCheck);
 
-    m_debugLoggingCheck = new QCheckBox("Debug logging (print incoming CoT messages)", configGroup);
+    m_debugLoggingCheck = new QCheckBox(tr("Debug logging (print incoming CoT messages)"), configGroup);
     configLayout->addWidget(m_debugLoggingCheck);
 
     topLayout->addWidget(configGroup, 2);
@@ -115,8 +116,8 @@ TakSettingsDialog::TakSettingsDialog(QWidget* parent)
     connect(m_browseCertBtn, &QPushButton::clicked, this, &TakSettingsDialog::browseCertFile);
 
     QHBoxLayout* buttonLayout = new QHBoxLayout();
-    QPushButton* okBtn = new QPushButton("OK", this);
-    QPushButton* cancelBtn = new QPushButton("Cancel", this);
+    QPushButton* okBtn = new QPushButton(tr("OK"), this);
+    QPushButton* cancelBtn = new QPushButton(tr("Cancel"), this);
     buttonLayout->addStretch();
     buttonLayout->addWidget(okBtn);
     buttonLayout->addWidget(cancelBtn);
@@ -154,12 +155,12 @@ void TakSettingsDialog::addServer()
 
     TakServerConfig config;
     config.id = QString("server_%1").arg(QDateTime::currentMSecsSinceEpoch());
-    config.name = "New Server";
+    config.name = tr("New Server");
     config.address = "";
     config.port = 8089;
-    config.callsign = "Unknown";
-    config.color = "Unknown";
-    config.role = "Team Member";
+    config.callsign = tr("Unknown");
+    config.color = tr("Unknown");
+    config.role = tr("Team Member");
     config.cotType = "a-f-G-U";
     config.autoConnect = false;
     config.debugLogging = false;
@@ -194,13 +195,22 @@ void TakSettingsDialog::browseCertFile()
 {
     QString filePath = QFileDialog::getOpenFileName(
         this,
-        "Select PKCS12 Certificate",
+        tr("Select PKCS12 Certificate"),
         QString(),
-        "PKCS12 Files (*.p12 *.pfx);;All Files (*)"
+        tr("PKCS12 Files (*.p12 *.pfx);;All Files (*)")
     );
 
     if (!filePath.isEmpty()) {
-        m_certPathEdit->setText(filePath);
+        QFile f(filePath);
+        if (f.open(QIODevice::ReadOnly)) {
+            if (m_currentIndex >= 0 && m_currentIndex < m_servers.size()) {
+                m_servers[m_currentIndex].certData = f.readAll();
+            }
+            f.close();
+            m_certPathEdit->setText(filePath);
+        } else {
+            QMessageBox::warning(this, tr("Error"), tr("Cannot open certificate file: %1").arg(filePath));
+        }
     }
 }
 
@@ -249,7 +259,7 @@ void TakSettingsDialog::saveFormToCurrentServer()
     config.debugLogging = m_debugLoggingCheck->isChecked();
 
     if (config.name.isEmpty()) {
-        config.name = config.address.isEmpty() ? "Unnamed Server" : config.address;
+        config.name = config.address.isEmpty() ? tr("Unnamed Server") : config.address;
     }
 
     updateServerListDisplay();

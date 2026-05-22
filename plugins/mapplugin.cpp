@@ -17,9 +17,9 @@ MapPlugin::MapPlugin(QObject* parent)
     , m_configSourceName("OSM Standard")
 {
     m_info.id = "map_plugin";
-    m_info.name = "Map";
+    m_info.name = tr("Map");
     m_info.version = "0.1";
-    m_info.description = "Map plugin with OSM, Carto Dark, and custom WMS/XYZ tile support";
+    m_info.description = tr("Map plugin with OSM, Carto Dark, and custom WMS/XYZ tile support");
     m_info.author = "LOUHI Team";
     m_info.type = PluginType::Map;
     m_info.enabled = true;
@@ -44,12 +44,12 @@ QVector<MenuEntry> MapPlugin::getMenuEntries() const
     QVector<MenuEntry> entries;
 
     MenuEntry viewEntry;
-    viewEntry.topMenu = "View";
-    viewEntry.subMenus = QStringList() << "Show Map";
+    viewEntry.topMenu = tr("View");
+    viewEntry.subMenus = QStringList() << tr("Show Map");
     entries.append(viewEntry);
 
     MenuEntry settingsEntry;
-    settingsEntry.topMenu = "Settings";
+    settingsEntry.topMenu = tr("Settings");
     settingsEntry.subMenus = QStringList();
     entries.append(settingsEntry);
 

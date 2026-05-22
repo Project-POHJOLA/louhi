@@ -39,7 +39,7 @@ if(BUILD_PORTABLE)
     include(cmake/PortableDeploy.cmake)
 endif()
 
-include_directories(${CMAKE_SOURCE_DIR}/src ${CMAKE_BINARY_DIR})
+include_directories(${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/plugins ${CMAKE_BINARY_DIR})
 
 # ---------------------------------------------------------------------------
 # Plugin interface library
@@ -49,19 +49,54 @@ add_library(plugininterface SHARED
     src/pluginmanager.h
     src/configmanager.h
     src/natsmessage.h
+    src/croutil.h
+    src/mapsources.h
+    src/tilecache.h
     src/pluginmanager.cpp
     src/configmanager.cpp
+    src/croutil.cpp
+    src/tilecache.cpp
+    plugins/mapsourcesdialog.h
+    plugins/mapsourcesdialog.cpp
 )
 
-target_link_libraries(plugininterface Qt5::Core Qt5::Widgets)
+target_link_libraries(plugininterface Qt5::Core Qt5::Widgets OpenSSL::Crypto)
 
 set_target_properties(plugininterface PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
 )
 
 # ---------------------------------------------------------------------------
+# Translations
+set(TS_FILES
+    ${CMAKE_SOURCE_DIR}/translations/louhi_en.ts
+    ${CMAKE_SOURCE_DIR}/translations/louhi_de.ts
+    ${CMAKE_SOURCE_DIR}/translations/louhi_fi.ts
+    ${CMAKE_SOURCE_DIR}/translations/louhi_sv.ts
+)
+
+find_program(LRELEASE lrelease)
+if(LRELEASE)
+    set(QM_FILES)
+    foreach(ts ${TS_FILES})
+        get_filename_component(ts_name ${ts} NAME_WE)
+        set(qm ${CMAKE_CURRENT_BINARY_DIR}/translations/${ts_name}.qm)
+        list(APPEND QM_FILES ${qm})
+        add_custom_command(
+            OUTPUT ${qm}
+            COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/translations
+            COMMAND ${LRELEASE} ${ts} -qm ${qm}
+            DEPENDS ${ts}
+            COMMENT "Compiling ${ts_name}.qm"
+        )
+    endforeach()
+    add_custom_target(translations ALL DEPENDS ${QM_FILES})
+else()
+    message(WARNING "lrelease not found - translations will not be compiled. Install qttools5-dev-tools.")
+    set(QM_FILES)
+endif()
+
 # Main executable
-# ---------------------------------------------------------------------------
 add_executable(louhi
     src/main.cpp
     src/mainwindow.cpp
@@ -81,6 +116,19 @@ target_link_libraries(louhi plugininterface Qt5::Widgets Qt5::Gui)
 set_target_properties(louhi PROPERTIES
     INSTALL_RPATH "$ORIGIN/../lib"
 )
+
+target_link_libraries(louhi plugininterface Qt5::Widgets Qt5::Gui)
+
+# Set RPATH for portable deployment: look for libs in ../lib/ relative to binary (bin/ -> lib/)
+set_target_properties(louhi PROPERTIES
+    INSTALL_RPATH "$ORIGIN/../lib"
+)
+
+# ---------------------------------------------------------------------------
+# Optional osgEarth dependency
+# ---------------------------------------------------------------------------
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
+find_package(osgEarth QUIET)
 
 # ---------------------------------------------------------------------------
 # Plugins
@@ -104,4 +152,10 @@ install(TARGETS plugininterface DESTINATION lib)
 install(TARGETS natsplugin messageviewerplugin takplugin locationplugin mapplugin
     LIBRARY DESTINATION plugins
 )
+if(osgEarth_FOUND)
+    install(TARGETS osgearthplugin
+        LIBRARY DESTINATION plugins
+    )
+endif()
 install(DIRECTORY plugins/ DESTINATION plugins FILES_MATCHING PATTERN "*.json")
+install(FILES ${QM_FILES} DESTINATION translations)

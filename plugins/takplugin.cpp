@@ -24,9 +24,9 @@ TakPlugin::TakPlugin(QObject* parent)
     , m_deviceUid(QUuid::createUuid().toString(QUuid::WithoutBraces).left(8).toUpper())
 {
     m_info.id = "tak_communication";
-    m_info.name = "TAK Communication";
+    m_info.name = tr("TAK Communication");
     m_info.version = "0.1";
-    m_info.description = "Team Awareness Kit (TAK) server communication via CoT over TCP/TLS";
+    m_info.description = tr("Team Awareness Kit (TAK) server communication via CoT over TCP/TLS");
     m_info.author = "LOUHI Team";
     m_info.type = PluginType::Communication;
     m_info.enabled = true;
@@ -63,12 +63,12 @@ QVector<MenuEntry> TakPlugin::getMenuEntries() const
     QVector<MenuEntry> entries;
 
     MenuEntry commEntry;
-    commEntry.topMenu = "Communication";
-    commEntry.subMenus = QStringList() << "Connect" << "Disconnect";
+    commEntry.topMenu = tr("Communication");
+    commEntry.subMenus = QStringList() << tr("Connect") << tr("Disconnect");
     entries.append(commEntry);
 
     MenuEntry settingsEntry;
-    settingsEntry.topMenu = "Settings";
+    settingsEntry.topMenu = tr("Settings");
     settingsEntry.subMenus = QStringList();
     entries.append(settingsEntry);
 
@@ -203,6 +203,7 @@ void TakPlugin::configure(QWidget* parent)
 
         m_serverConfigs = newConfigs;
         updateStatusDisplay();
+        emit configChanged();
     }
 }
 
@@ -361,16 +362,16 @@ void TakPlugin::buildStatusWidget()
     m_statusWidget = new QWidget();
     m_mainLayout = new QVBoxLayout(m_statusWidget);
 
-    QGroupBox* statusGroup = new QGroupBox("TAK Server Connections", m_statusWidget);
+    QGroupBox* statusGroup = new QGroupBox(tr("TAK Server Connections"), m_statusWidget);
     QVBoxLayout* groupLayout = new QVBoxLayout(statusGroup);
 
     m_serverStatusList = new QListWidget(statusGroup);
     m_serverStatusList->setSelectionMode(QAbstractItemView::NoSelection);
 
     QHBoxLayout* btnLayout = new QHBoxLayout();
-    QPushButton* connectAllBtn = new QPushButton("Connect All", statusGroup);
-    QPushButton* disconnectAllBtn = new QPushButton("Disconnect All", statusGroup);
-    QPushButton* configureBtn = new QPushButton("Configure...", statusGroup);
+    QPushButton* connectAllBtn = new QPushButton(tr("Connect All"), statusGroup);
+    QPushButton* disconnectAllBtn = new QPushButton(tr("Disconnect All"), statusGroup);
+    QPushButton* configureBtn = new QPushButton(tr("Configure..."), statusGroup);
     btnLayout->addWidget(connectAllBtn);
     btnLayout->addWidget(disconnectAllBtn);
     btnLayout->addStretch();
@@ -428,7 +429,7 @@ void TakPlugin::updateStatusDisplay()
             }
         } else {
             icon = "[ ]";
-            statusText = QString("%1 %2 - Not initialized")
+            statusText = QString("%1 %2 - " + tr("Not initialized"))
                 .arg(icon)
                 .arg(config.name);
         }
@@ -478,6 +479,7 @@ TakServerConfig TakPlugin::configFromJson(const QJsonObject& obj) const
     config.port = obj.value("port").toInt(8089);
     config.certFilePath = obj.value("certFilePath").toString("");
     config.certPassword = obj.value("certPassword").toString("");
+    config.certData = QByteArray::fromBase64(obj.value("certData").toString().toLatin1());
     config.callsign = obj.value("callsign").toString("Unknown");
     config.color = obj.value("color").toString("Unknown");
     config.role = obj.value("role").toString("Team Member");
@@ -496,6 +498,7 @@ QJsonObject TakPlugin::configToJson(const TakServerConfig& config) const
     obj["port"] = config.port;
     obj["certFilePath"] = config.certFilePath;
     obj["certPassword"] = config.certPassword;
+    obj["certData"] = QString::fromLatin1(config.certData.toBase64());
     obj["callsign"] = config.callsign;
     obj["color"] = config.color;
     obj["role"] = config.role;

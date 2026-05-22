@@ -1,8 +1,6 @@
 #include "takserverconnection.h"
 #include "cotmessage.h"
 #include <QDebug>
-#include <QFile>
-#include <QFileInfo>
 #include <QDateTime>
 #include <QSslKey>
 #include <QSslCertificate>
@@ -152,60 +150,45 @@ void TakServerConnection::setupSsl()
     QSslConfiguration sslConfig = QSslConfiguration::defaultConfiguration();
     sslConfig.setPeerVerifyMode(QSslSocket::VerifyNone);
 
-    if (!m_config.certFilePath.isEmpty()) {
-        QFileInfo fi(m_config.certFilePath);
-        if (fi.exists()) {
-            QFile certFile(m_config.certFilePath);
-            if (certFile.open(QIODevice::ReadOnly)) {
-                QByteArray pfxData = certFile.readAll();
-                certFile.close();
+    if (!m_config.certData.isEmpty()) {
+        QByteArray pfxData = m_config.certData;
 
-                QSslCertificate cert;
-                QSslKey key;
-                QList<QSslCertificate> extraCerts;
+        QSslCertificate cert;
+        QSslKey key;
+        QList<QSslCertificate> extraCerts;
 
-                QBuffer buffer(&pfxData);
-                buffer.open(QIODevice::ReadOnly);
+        QBuffer buffer(&pfxData);
+        buffer.open(QIODevice::ReadOnly);
 
-                static bool legacyLoaded = false;
-                if (!legacyLoaded) {
-                    OSSL_PROVIDER* legacy = OSSL_PROVIDER_load(NULL, "legacy");
-                    if (legacy) {
-                        legacyLoaded = true;
-                        qDebug() << "TAK: OpenSSL legacy provider loaded";
-                    }
-                }
-
-                bool imported = false;
-                if (!m_config.certPassword.isEmpty()) {
-                    imported = QSslCertificate::importPkcs12(&buffer, &key, &cert, &extraCerts, m_config.certPassword.toUtf8());
-                } else {
-                    imported = QSslCertificate::importPkcs12(&buffer, &key, &cert, &extraCerts);
-                }
-
-                buffer.close();
-
-                if (imported) {
-                    sslConfig.setLocalCertificate(cert);
-                    sslConfig.setPrivateKey(key);
-                    for (const QSslCertificate& caCert : extraCerts) {
-                        sslConfig.addCaCertificate(caCert);
-                    }
-                    m_statusText = "Certificate loaded";
-                    emit statusChanged(m_statusText);
-                } else {
-                    m_statusText = QString("Failed to load certificate: %1").arg(m_config.certPassword.isEmpty() ? "wrong format or no password needed" : "wrong password or legacy cipher (OpenSSL 3)");
-                    qWarning() << "TAK: PKCS12 import failed -" << m_statusText;
-                    emit statusChanged(m_statusText);
-                    emit connectionError(m_statusText);
-                }
-            } else {
-                m_statusText = "Cannot open certificate file";
-                emit statusChanged(m_statusText);
-                emit connectionError(m_statusText);
+        static bool legacyLoaded = false;
+        if (!legacyLoaded) {
+            OSSL_PROVIDER* legacy = OSSL_PROVIDER_load(NULL, "legacy");
+            if (legacy) {
+                legacyLoaded = true;
+                qDebug() << "TAK: OpenSSL legacy provider loaded";
             }
+        }
+
+        bool imported = false;
+        if (!m_config.certPassword.isEmpty()) {
+            imported = QSslCertificate::importPkcs12(&buffer, &key, &cert, &extraCerts, m_config.certPassword.toUtf8());
         } else {
-            m_statusText = "Certificate file not found";
+            imported = QSslCertificate::importPkcs12(&buffer, &key, &cert, &extraCerts);
+        }
+
+        buffer.close();
+
+        if (imported) {
+            sslConfig.setLocalCertificate(cert);
+            sslConfig.setPrivateKey(key);
+            for (const QSslCertificate& caCert : extraCerts) {
+                sslConfig.addCaCertificate(caCert);
+            }
+            m_statusText = "Certificate loaded";
+            emit statusChanged(m_statusText);
+        } else {
+            m_statusText = QString("Failed to load certificate: %1").arg(m_config.certPassword.isEmpty() ? "wrong format or no password needed" : "wrong password or legacy cipher (OpenSSL 3)");
+            qWarning() << "TAK: PKCS12 import failed -" << m_statusText;
             emit statusChanged(m_statusText);
             emit connectionError(m_statusText);
         }

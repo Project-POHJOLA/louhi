@@ -45,6 +45,7 @@ public:
     void enablePlugin(const QString& pluginId);
     void disablePlugin(const QString& pluginId);
 
+    QVector<ToolbarEntry> collectToolbarEntries() const;
     void setupMenu(QMenuBar* menuBar);
     void broadcastMessage(const QString& topic, const QString& payload, PluginInterface* sender = nullptr);
 
@@ -53,6 +54,7 @@ public:
 signals:
     void pluginConnectionStatusChanged(const QString& pluginId, const QString& status);
     void pluginMessageReceived(const QString& pluginId, const QString& topic, const QString& payload);
+    void pluginConfigChanged(const QString& pluginId);
 
 private:
     QVector<LoadedPlugin> m_plugins;

@@ -78,8 +78,6 @@ add_library(mapplugin SHARED
     mapplugin.cpp
     mapwidget.h
     mapwidget.cpp
-    mapsourcesdialog.h
-    mapsourcesdialog.cpp
 )
 
 target_link_libraries(mapplugin plugininterface Qt5::Widgets Qt5::Core Qt5::Gui Qt5::Network)
@@ -90,3 +88,36 @@ set_target_properties(mapplugin PROPERTIES
     INSTALL_RPATH "$ORIGIN/../lib"
     BUILD_RPATH_USE_ORIGIN ON
 )
+
+# ---------------------------------------------------------------------------
+# OsgEarth Map Plugin (optional, requires osgEarth)
+# ---------------------------------------------------------------------------
+if(osgEarth_FOUND)
+    add_library(osgearthplugin SHARED
+        osgearthplugin.h
+        osgearthplugin.cpp
+        osgearthmapwidget.h
+        osgearthmapwidget.cpp
+    )
+
+    target_link_libraries(osgearthplugin
+        plugininterface
+        Qt5::Widgets Qt5::Core Qt5::Gui Qt5::Network
+        ${OSGEARTH_LIBRARIES}
+    )
+
+    target_include_directories(osgearthplugin PRIVATE
+        ${OSGEARTH_INCLUDE_DIRS}
+    )
+
+    set_target_properties(osgearthplugin PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
+        PREFIX ""
+        INSTALL_RPATH "$ORIGIN/../lib"
+        BUILD_RPATH_USE_ORIGIN ON
+    )
+
+    message(STATUS "osgEarth found - building osgearthplugin")
+else()
+    message(STATUS "osgEarth not found - skipping osgearthplugin (install osgEarth to enable 3D map)")
+endif()

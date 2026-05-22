@@ -7,18 +7,18 @@
 LocationSettingsDialog::LocationSettingsDialog(QWidget* parent)
     : QDialog(parent)
 {
-    setWindowTitle("Location Provider Settings");
+    setWindowTitle(tr("Location Provider Settings"));
     setMinimumSize(600, 500);
 
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
 
-    QGroupBox* mainProviderGroup = new QGroupBox("Main Provider", this);
+    QGroupBox* mainProviderGroup = new QGroupBox(tr("Main Provider"), this);
     QVBoxLayout* mainProviderLayout = new QVBoxLayout(mainProviderGroup);
 
     QHBoxLayout* mainTypeLayout = new QHBoxLayout();
-    mainTypeLayout->addWidget(new QLabel("Type:", mainProviderGroup));
+    mainTypeLayout->addWidget(new QLabel(tr("Type:"), mainProviderGroup));
     m_mainProviderType = new QComboBox(mainProviderGroup);
-    m_mainProviderType->addItems({"Serial GPS", "GPSD", "Manual"});
+    m_mainProviderType->addItems({tr("Serial GPS"), tr("GPSD"), tr("Manual")});
     mainTypeLayout->addWidget(m_mainProviderType);
     mainTypeLayout->addStretch();
     mainProviderLayout->addLayout(mainTypeLayout);
@@ -28,24 +28,24 @@ LocationSettingsDialog::LocationSettingsDialog(QWidget* parent)
     QWidget* serialWidget = new QWidget();
     QFormLayout* serialLayout = new QFormLayout(serialWidget);
     m_serialPortEdit = new QLineEdit("/dev/ttyUSB0", serialWidget);
-    m_serialPortEdit->setPlaceholderText("/dev/ttyUSB0 or /dev/ttyACM0");
-    serialLayout->addRow("Serial Port:", m_serialPortEdit);
+    m_serialPortEdit->setPlaceholderText(tr("/dev/ttyUSB0 or /dev/ttyACM0"));
+    serialLayout->addRow(tr("Serial Port:"), m_serialPortEdit);
     m_serialBaudSpin = new QSpinBox(serialWidget);
     m_serialBaudSpin->setRange(1200, 115200);
     m_serialBaudSpin->setValue(9600);
     m_serialBaudSpin->setSingleStep(1200);
-    serialLayout->addRow("Baud Rate:", m_serialBaudSpin);
-    m_mainProviderTabs->addTab(serialWidget, "Serial");
+    serialLayout->addRow(tr("Baud Rate:"), m_serialBaudSpin);
+    m_mainProviderTabs->addTab(serialWidget, tr("Serial"));
 
     QWidget* gpsdWidget = new QWidget();
     QFormLayout* gpsdLayout = new QFormLayout(gpsdWidget);
     m_gpsdHostEdit = new QLineEdit("localhost", gpsdWidget);
-    gpsdLayout->addRow("Host:", m_gpsdHostEdit);
+    gpsdLayout->addRow(tr("Host:"), m_gpsdHostEdit);
     m_gpsdPortSpin = new QSpinBox(gpsdWidget);
     m_gpsdPortSpin->setRange(1, 65535);
     m_gpsdPortSpin->setValue(2947);
-    gpsdLayout->addRow("Port:", m_gpsdPortSpin);
-    m_mainProviderTabs->addTab(gpsdWidget, "GPSD");
+    gpsdLayout->addRow(tr("Port:"), m_gpsdPortSpin);
+    m_mainProviderTabs->addTab(gpsdWidget, tr("GPSD"));
 
     QWidget* manualWidget = new QWidget();
     QFormLayout* manualLayout = new QFormLayout(manualWidget);
@@ -53,29 +53,29 @@ LocationSettingsDialog::LocationSettingsDialog(QWidget* parent)
     m_manualLatSpin->setRange(-90.0, 90.0);
     m_manualLatSpin->setDecimals(6);
     m_manualLatSpin->setValue(0.0);
-    manualLayout->addRow("Latitude:", m_manualLatSpin);
+    manualLayout->addRow(tr("Latitude:"), m_manualLatSpin);
     m_manualLonSpin = new QDoubleSpinBox(manualWidget);
     m_manualLonSpin->setRange(-180.0, 180.0);
     m_manualLonSpin->setDecimals(6);
     m_manualLonSpin->setValue(0.0);
-    manualLayout->addRow("Longitude:", m_manualLonSpin);
+    manualLayout->addRow(tr("Longitude:"), m_manualLonSpin);
     m_manualAltSpin = new QDoubleSpinBox(manualWidget);
     m_manualAltSpin->setRange(-500.0, 9000.0);
     m_manualAltSpin->setDecimals(1);
     m_manualAltSpin->setValue(0.0);
-    manualLayout->addRow("Altitude (m):", m_manualAltSpin);
-    m_mainProviderTabs->addTab(manualWidget, "Manual");
+    manualLayout->addRow(tr("Altitude (m):"), m_manualAltSpin);
+    m_mainProviderTabs->addTab(manualWidget, tr("Manual"));
 
     mainProviderLayout->addWidget(m_mainProviderTabs);
     mainLayout->addWidget(mainProviderGroup);
 
-    QGroupBox* fallbackProviderGroup = new QGroupBox("Fallback Provider", this);
+    QGroupBox* fallbackProviderGroup = new QGroupBox(tr("Fallback Provider"), this);
     QVBoxLayout* fallbackProviderLayout = new QVBoxLayout(fallbackProviderGroup);
 
     QHBoxLayout* fallbackTypeLayout = new QHBoxLayout();
-    fallbackTypeLayout->addWidget(new QLabel("Type:", fallbackProviderGroup));
+    fallbackTypeLayout->addWidget(new QLabel(tr("Type:"), fallbackProviderGroup));
     m_fallbackProviderType = new QComboBox(fallbackProviderGroup);
-    m_fallbackProviderType->addItems({"None", "Serial GPS", "GPSD", "Manual"});
+    m_fallbackProviderType->addItems({tr("None"), tr("Serial GPS"), tr("GPSD"), tr("Manual")});
     fallbackTypeLayout->addWidget(m_fallbackProviderType);
     fallbackTypeLayout->addStretch();
     fallbackProviderLayout->addLayout(fallbackTypeLayout);
@@ -85,24 +85,24 @@ LocationSettingsDialog::LocationSettingsDialog(QWidget* parent)
     QWidget* serialWidgetFallback = new QWidget();
     QFormLayout* serialLayoutFallback = new QFormLayout(serialWidgetFallback);
     m_serialPortEditFallback = new QLineEdit("/dev/ttyUSB1", serialWidgetFallback);
-    m_serialPortEditFallback->setPlaceholderText("/dev/ttyUSB1 or /dev/ttyACM0");
-    serialLayoutFallback->addRow("Serial Port:", m_serialPortEditFallback);
+    m_serialPortEditFallback->setPlaceholderText(tr("/dev/ttyUSB1 or /dev/ttyACM0"));
+    serialLayoutFallback->addRow(tr("Serial Port:"), m_serialPortEditFallback);
     m_serialBaudSpinFallback = new QSpinBox(serialWidgetFallback);
     m_serialBaudSpinFallback->setRange(1200, 115200);
     m_serialBaudSpinFallback->setValue(9600);
     m_serialBaudSpinFallback->setSingleStep(1200);
-    serialLayoutFallback->addRow("Baud Rate:", m_serialBaudSpinFallback);
-    m_fallbackProviderTabs->addTab(serialWidgetFallback, "Serial");
+    serialLayoutFallback->addRow(tr("Baud Rate:"), m_serialBaudSpinFallback);
+    m_fallbackProviderTabs->addTab(serialWidgetFallback, tr("Serial"));
 
     QWidget* gpsdWidgetFallback = new QWidget();
     QFormLayout* gpsdLayoutFallback = new QFormLayout(gpsdWidgetFallback);
     m_gpsdHostEditFallback = new QLineEdit("localhost", gpsdWidgetFallback);
-    gpsdLayoutFallback->addRow("Host:", m_gpsdHostEditFallback);
+    gpsdLayoutFallback->addRow(tr("Host:"), m_gpsdHostEditFallback);
     m_gpsdPortSpinFallback = new QSpinBox(gpsdWidgetFallback);
     m_gpsdPortSpinFallback->setRange(1, 65535);
     m_gpsdPortSpinFallback->setValue(2947);
-    gpsdLayoutFallback->addRow("Port:", m_gpsdPortSpinFallback);
-    m_fallbackProviderTabs->addTab(gpsdWidgetFallback, "GPSD");
+    gpsdLayoutFallback->addRow(tr("Port:"), m_gpsdPortSpinFallback);
+    m_fallbackProviderTabs->addTab(gpsdWidgetFallback, tr("GPSD"));
 
     QWidget* manualWidgetFallback = new QWidget();
     QFormLayout* manualLayoutFallback = new QFormLayout(manualWidgetFallback);
@@ -110,26 +110,26 @@ LocationSettingsDialog::LocationSettingsDialog(QWidget* parent)
     m_manualLatSpinFallback->setRange(-90.0, 90.0);
     m_manualLatSpinFallback->setDecimals(6);
     m_manualLatSpinFallback->setValue(0.0);
-    manualLayoutFallback->addRow("Latitude:", m_manualLatSpinFallback);
+    manualLayoutFallback->addRow(tr("Latitude:"), m_manualLatSpinFallback);
     m_manualLonSpinFallback = new QDoubleSpinBox(manualWidgetFallback);
     m_manualLonSpinFallback->setRange(-180.0, 180.0);
     m_manualLonSpinFallback->setDecimals(6);
     m_manualLonSpinFallback->setValue(0.0);
-    manualLayoutFallback->addRow("Longitude:", m_manualLonSpinFallback);
+    manualLayoutFallback->addRow(tr("Longitude:"), m_manualLonSpinFallback);
     m_manualAltSpinFallback = new QDoubleSpinBox(manualWidgetFallback);
     m_manualAltSpinFallback->setRange(-500.0, 9000.0);
     m_manualAltSpinFallback->setDecimals(1);
     m_manualAltSpinFallback->setValue(0.0);
-    manualLayoutFallback->addRow("Altitude (m):", m_manualAltSpinFallback);
-    m_fallbackProviderTabs->addTab(manualWidgetFallback, "Manual");
+    manualLayoutFallback->addRow(tr("Altitude (m):"), m_manualAltSpinFallback);
+    m_fallbackProviderTabs->addTab(manualWidgetFallback, tr("Manual"));
 
     fallbackProviderLayout->addWidget(m_fallbackProviderTabs);
     mainLayout->addWidget(fallbackProviderGroup);
 
-    QGroupBox* broadcastGroup = new QGroupBox("Broadcast Settings", this);
+    QGroupBox* broadcastGroup = new QGroupBox(tr("Broadcast Settings"), this);
     QFormLayout* broadcastLayout = new QFormLayout(broadcastGroup);
 
-    m_broadcastOnChange = new QCheckBox("Broadcast on location change", broadcastGroup);
+    m_broadcastOnChange = new QCheckBox(tr("Broadcast on location change"), broadcastGroup);
     m_broadcastOnChange->setChecked(true);
     broadcastLayout->addRow(m_broadcastOnChange);
 
@@ -137,13 +137,13 @@ LocationSettingsDialog::LocationSettingsDialog(QWidget* parent)
     m_broadcastIntervalSpin->setRange(100, 60000);
     m_broadcastIntervalSpin->setValue(1000);
     m_broadcastIntervalSpin->setSingleStep(100);
-    broadcastLayout->addRow("Min interval (ms):", m_broadcastIntervalSpin);
+    broadcastLayout->addRow(tr("Min interval (ms):"), m_broadcastIntervalSpin);
 
     m_publishTopicEdit = new QLineEdit("location.position", broadcastGroup);
-    broadcastLayout->addRow("Publish topic:", m_publishTopicEdit);
+    broadcastLayout->addRow(tr("Publish topic:"), m_publishTopicEdit);
 
     m_requestTopicEdit = new QLineEdit("location.request", broadcastGroup);
-    broadcastLayout->addRow("Request topic:", m_requestTopicEdit);
+    broadcastLayout->addRow(tr("Request topic:"), m_requestTopicEdit);
 
     mainLayout->addWidget(broadcastGroup);
 
@@ -160,8 +160,8 @@ LocationSettingsDialog::LocationSettingsDialog(QWidget* parent)
             });
 
     QHBoxLayout* buttonLayout = new QHBoxLayout();
-    QPushButton* okBtn = new QPushButton("OK", this);
-    QPushButton* cancelBtn = new QPushButton("Cancel", this);
+    QPushButton* okBtn = new QPushButton(tr("OK"), this);
+    QPushButton* cancelBtn = new QPushButton(tr("Cancel"), this);
     buttonLayout->addStretch();
     buttonLayout->addWidget(okBtn);
     buttonLayout->addWidget(cancelBtn);
@@ -292,17 +292,17 @@ LocationProviderConfig LocationSettingsDialog::saveFormToProvider(const QString&
         int typeIndex = m_mainProviderType->currentIndex();
         if (typeIndex == 0) {
             config.type = "serial";
-            config.name = "Serial GPS";
+            config.name = tr("Serial GPS");
             config.providerConfig["port"] = m_serialPortEdit->text();
             config.providerConfig["baudRate"] = m_serialBaudSpin->value();
         } else if (typeIndex == 1) {
             config.type = "gpsd";
-            config.name = "GPSD";
+            config.name = tr("GPSD");
             config.providerConfig["host"] = m_gpsdHostEdit->text();
             config.providerConfig["port"] = m_gpsdPortSpin->value();
         } else {
             config.type = "manual";
-            config.name = "Manual";
+            config.name = tr("Manual");
             config.providerConfig["latitude"] = m_manualLatSpin->value();
             config.providerConfig["longitude"] = m_manualLonSpin->value();
             config.providerConfig["altitude"] = m_manualAltSpin->value();
@@ -311,21 +311,21 @@ LocationProviderConfig LocationSettingsDialog::saveFormToProvider(const QString&
         int typeIndex = m_fallbackProviderType->currentIndex();
         if (typeIndex == 0) {
             config.type = "none";
-            config.name = "None";
+            config.name = tr("None");
             config.enabled = false;
         } else if (typeIndex == 1) {
             config.type = "serial";
-            config.name = "Serial GPS (Fallback)";
+            config.name = tr("Serial GPS (Fallback)");
             config.providerConfig["port"] = m_serialPortEditFallback->text();
             config.providerConfig["baudRate"] = m_serialBaudSpinFallback->value();
         } else if (typeIndex == 2) {
             config.type = "gpsd";
-            config.name = "GPSD (Fallback)";
+            config.name = tr("GPSD (Fallback)");
             config.providerConfig["host"] = m_gpsdHostEditFallback->text();
             config.providerConfig["port"] = m_gpsdPortSpinFallback->value();
         } else {
             config.type = "manual";
-            config.name = "Manual (Fallback)";
+            config.name = tr("Manual (Fallback)");
             config.providerConfig["latitude"] = m_manualLatSpinFallback->value();
             config.providerConfig["longitude"] = m_manualLonSpinFallback->value();
             config.providerConfig["altitude"] = m_manualAltSpinFallback->value();

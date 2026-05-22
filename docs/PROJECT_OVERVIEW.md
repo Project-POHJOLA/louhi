@@ -34,6 +34,8 @@ graph TB
         NP[NATS Plugin]
         TP[TAK Plugin]
         LP[Location Plugin]
+        MP[Map Plugin]
+        EP[OsgEarth Map Plugin]
         MVP[MessageViewer Plugin]
     end
 
@@ -54,6 +56,8 @@ graph TB
     PM --> NP
     PM --> TP
     PM --> LP
+    PM --> MP
+    PM --> EP
     PM --> MVP
 
     NP <--> NATS
@@ -154,6 +158,28 @@ Provides location from Serial GPS (NMEA), GPSD, or Manual entry with automatic m
 
 Debug/monitoring tool displaying all messages flowing through the plugin bus. Gets an automatic dock widget.
 
+### Map Plugin
+
+| Field | Value |
+|-------|-------|
+| ID | `map_plugin` |
+| Type | Map |
+| Subscribe | `location.position`, `location.position.reply` |
+| Publish | `location.request` |
+
+2D tile map using QGraphicsView. Supports XYZ (OpenStreetMap, Carto) and WMS sources. Shares MapSource settings and tile cache with the OsgEarth plugin.
+
+### OsgEarth Map Plugin
+
+| Field | Value |
+|-------|-------|
+| ID | `osgearth_map` |
+| Type | Map |
+| Subscribe | *(none - future: location tracking)* |
+| Publish | *(none)* |
+
+3D globe map plugin using osgEarth 3.8 + OpenSceneGraph 3.7 (GL3 profile). Embedded via `QOpenGLWidget` + `osgViewer::GraphicsWindowEmbedded`. Mouse events forwarded to OSG event queue for native EarthManipulator handling. Shares MapSource config and tile cache with the 2D Map plugin.
+
 ## Message Flows
 
 ### Topic Registry
@@ -166,6 +192,7 @@ Debug/monitoring tool displaying all messages flowing through the plugin bus. Ge
 | `tak.<serverName>` | TAK | MessageViewer | XML (CoT) | CoT data from a specific TAK server |
 | `tak.>` | TAK | MessageViewer | XML (CoT) | All TAK-related messages |
 | `>` | All plugins | MessageViewer | Any | ALL messages (debug) |
+| `location.request` | Map, OsgEarth | Location | Any | Request current position (used before auto-centering was removed from OsgEarth) |
 
 ### Flow: Location to TAK Server
 
@@ -277,7 +304,9 @@ graph TB
     "nats_communication": { "serverUrl": "localhost", "port": 4222, "autoConnect": false },
     "tak_communication": { "servers": [ { "id": "...", "name": "...", "address": "...", "port": 8089, "callsign": "...", "color": "...", "role": "...", "cotType": "a-f-G-U", "autoConnect": false, "debugLogging": false } ] },
     "location_communication": { "mainProvider": { "type": "manual", "providerConfig": { "latitude": 60.1699, "longitude": 24.9384, "altitude": 10.0, "valid": true } }, "fallbackProvider": { "type": "none" }, "broadcastOnChange": true, "broadcastInterval": 1000, "publishTopic": "location.position", "requestTopic": "location.request" },
-    "message_viewer": { "maxMessages": 100, "subscribeTopics": [">"] }
+    "message_viewer": { "maxMessages": 100, "subscribeTopics": [">"] },
+    "map_plugin": { "latitude": 60.1699, "longitude": 24.9384, "zoom": 10, "sourceName": "OSM Standard", "customSources": [] },
+    "osgearth_map": { "latitude": 60.1699, "longitude": 24.9384, "zoom": 14, "sourceName": "OSM Standard", "customSources": [] }
   }
 }
 ```
@@ -303,6 +332,8 @@ Communication
 
 View
   Message Viewer     > [Show Message Viewer] [Clear Messages]
+  Map                > [Show Map]
+  OsgEarth Map       > [Show 3D Map]
 
 Settings
   NATS Communication > [configure dialog]

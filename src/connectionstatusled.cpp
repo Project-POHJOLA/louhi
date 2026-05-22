@@ -35,13 +35,13 @@ void ConnectionStatusLed::updateTooltip()
     QString statusText;
     switch (m_state) {
         case Disconnected:
-            statusText = "Disconnected";
+            statusText = tr("Disconnected");
             break;
         case Connected:
-            statusText = "Connected";
+            statusText = tr("Connected");
             break;
         case Traffic:
-            statusText = "Traffic";
+            statusText = tr("Traffic");
             break;
     }
     setToolTip(QString("%1:%2 - %3").arg(m_connectionType).arg(m_connectionName).arg(statusText));
