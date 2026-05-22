@@ -6,6 +6,7 @@
 #include <QSurfaceFormat>
 #include <QTimer>
 
+#include <osg/Notify>
 #include <osg/Geode>
 #include <osg/ShapeDrawable>
 #include <osg/Material>
@@ -35,6 +36,8 @@ OsgEarthMapWidget::OsgEarthMapWidget(QWidget* parent)
     , m_updateTimer(nullptr)
     , m_mapInitialized(false)
 {
+    osg::setNotifyLevel(osg::WARN);
+
     setMinimumSize(200, 200);
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     setFocusPolicy(Qt::StrongFocus);

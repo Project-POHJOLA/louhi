@@ -98,14 +98,6 @@ bool OsgEarthPlugin::initialize()
 
     m_mapWidget = new OsgEarthMapWidget();
 
-    connect(m_mapWidget, &OsgEarthMapWidget::centerChanged, this, [this](double lat, double lon) {
-        qDebug() << "OsgEarth Plugin: Center changed to" << lat << "," << lon;
-    });
-
-    connect(m_mapWidget, &OsgEarthMapWidget::zoomChanged, this, [this](int zoom) {
-        qDebug() << "OsgEarth Plugin: Zoom changed to" << zoom;
-    });
-
     m_basemapDock = new BasemapDockWidget();
     m_basemapDock->setObjectName("osgearthBasemapDock");
 
