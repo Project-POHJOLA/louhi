@@ -94,15 +94,19 @@ bool MainWindow::restoreDockState()
     return false;
 }
 
-static QWidget* createSpacer(int width)
+void MainWindow::clearPluginToolbars()
 {
-    QWidget* w = new QWidget;
-    w->setFixedWidth(width);
-    return w;
+    for (QToolBar* tb : m_pluginToolbars) {
+        removeToolBar(tb);
+        delete tb;
+    }
+    m_pluginToolbars.clear();
 }
 
 void MainWindow::setupToolbar()
 {
+    clearPluginToolbars();
+
     m_mainToolBar->setVisible(true);
     m_mainToolBar->clear();
 
@@ -110,28 +114,30 @@ void MainWindow::setupToolbar()
     aboutAction->setToolTip(tr("About LOUHI"));
     connect(aboutAction, &QAction::triggered, this, &MainWindow::showAbout);
 
-    m_mainToolBar->addWidget(createSpacer(8));
+    m_mainToolBar->addSeparator();
 
     QAction* exitAction = m_mainToolBar->addAction(tr("Exit"));
     exitAction->setToolTip(tr("Exit LOUHI"));
     connect(exitAction, &QAction::triggered, qApp, &QApplication::quit);
 
-    QStringList groups;
     QMap<QString, QVector<ToolbarEntry>> grouped;
     for (const ToolbarEntry& entry : m_pluginManager->collectToolbarEntries()) {
         QString g = entry.group.isEmpty() ? QString() : entry.group;
         grouped[g].append(entry);
-        if (!g.isEmpty() && !groups.contains(g))
-            groups.append(g);
     }
 
-    if (!grouped[QString()].isEmpty())
-        groups.prepend(QString());
+    for (auto it = grouped.begin(); it != grouped.end(); ++it) {
+        const QString& groupName = it.key();
+        const QVector<ToolbarEntry>& entries = it.value();
 
-    for (const QString& group : groups) {
-        m_mainToolBar->addWidget(createSpacer(6));
-        for (const ToolbarEntry& entry : grouped[group]) {
-            QAction* action = m_mainToolBar->addAction(entry.text);
+        QString title = groupName.isEmpty() ? tr("Plugins") : groupName;
+        QToolBar* tb = new QToolBar(title, this);
+        tb->setObjectName(groupName.isEmpty() ? "pluginToolbar" : "pluginToolbar_" + groupName);
+        addToolBar(Qt::RightToolBarArea, tb);
+        tb->setMovable(false);
+
+        for (const ToolbarEntry& entry : entries) {
+            QAction* action = tb->addAction(entry.text);
             action->setObjectName(entry.id);
             if (!entry.tooltip.isEmpty())
                 action->setToolTip(entry.tooltip);
@@ -156,6 +162,8 @@ void MainWindow::setupToolbar()
                 });
             }
         }
+
+        m_pluginToolbars.append(tb);
     }
 }
 
