@@ -3,6 +3,17 @@
 #include <QHBoxLayout>
 #include <QFormLayout>
 #include <QGridLayout>
+#include <QSerialPortInfo>
+
+#ifdef Q_OS_WIN
+static const QString DEFAULT_SERIAL_PORT = "COM1";
+static const QString DEFAULT_SERIAL_PORT2 = "COM2";
+static const QString PLACEHOLDER_SERIAL = "COM1, COM2, etc.";
+#else
+static const QString DEFAULT_SERIAL_PORT = "/dev/ttyUSB0";
+static const QString DEFAULT_SERIAL_PORT2 = "/dev/ttyUSB1";
+static const QString PLACEHOLDER_SERIAL = "/dev/ttyUSB0 or /dev/ttyACM0";
+#endif
 
 LocationSettingsDialog::LocationSettingsDialog(QWidget* parent)
     : QDialog(parent)
@@ -27,8 +38,8 @@ LocationSettingsDialog::LocationSettingsDialog(QWidget* parent)
 
     QWidget* serialWidget = new QWidget();
     QFormLayout* serialLayout = new QFormLayout(serialWidget);
-    m_serialPortEdit = new QLineEdit("/dev/ttyUSB0", serialWidget);
-    m_serialPortEdit->setPlaceholderText(tr("/dev/ttyUSB0 or /dev/ttyACM0"));
+    m_serialPortEdit = new QLineEdit(DEFAULT_SERIAL_PORT, serialWidget);
+    m_serialPortEdit->setPlaceholderText(tr(PLACEHOLDER_SERIAL.toUtf8().constData()));
     serialLayout->addRow(tr("Serial Port:"), m_serialPortEdit);
     m_serialBaudSpin = new QSpinBox(serialWidget);
     m_serialBaudSpin->setRange(1200, 115200);
@@ -84,8 +95,8 @@ LocationSettingsDialog::LocationSettingsDialog(QWidget* parent)
 
     QWidget* serialWidgetFallback = new QWidget();
     QFormLayout* serialLayoutFallback = new QFormLayout(serialWidgetFallback);
-    m_serialPortEditFallback = new QLineEdit("/dev/ttyUSB1", serialWidgetFallback);
-    m_serialPortEditFallback->setPlaceholderText(tr("/dev/ttyUSB1 or /dev/ttyACM0"));
+    m_serialPortEditFallback = new QLineEdit(DEFAULT_SERIAL_PORT2, serialWidgetFallback);
+    m_serialPortEditFallback->setPlaceholderText(tr(PLACEHOLDER_SERIAL.toUtf8().constData()));
     serialLayoutFallback->addRow(tr("Serial Port:"), m_serialPortEditFallback);
     m_serialBaudSpinFallback = new QSpinBox(serialWidgetFallback);
     m_serialBaudSpinFallback->setRange(1200, 115200);
@@ -251,11 +262,11 @@ void LocationSettingsDialog::loadProviderToForm(const QString& prefix, const Loc
     if (config.type == "serial") {
         if (prefix == "main") {
             m_mainProviderType->setCurrentIndex(0);
-            m_serialPortEdit->setText(config.providerConfig.value("port").toString("/dev/ttyUSB0"));
+            m_serialPortEdit->setText(config.providerConfig.value("port").toString(DEFAULT_SERIAL_PORT));
             m_serialBaudSpin->setValue(config.providerConfig.value("baudRate").toInt(9600));
         } else {
             m_fallbackProviderType->setCurrentIndex(1);
-            m_serialPortEditFallback->setText(config.providerConfig.value("port").toString("/dev/ttyUSB1"));
+            m_serialPortEditFallback->setText(config.providerConfig.value("port").toString(DEFAULT_SERIAL_PORT2));
             m_serialBaudSpinFallback->setValue(config.providerConfig.value("baudRate").toInt(9600));
         }
     } else if (config.type == "gpsd") {

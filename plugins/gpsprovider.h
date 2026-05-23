@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QString>
 #include <QJsonObject>
+#include <QSerialPort>
 
 struct LocationData {
     double latitude;
@@ -73,12 +74,10 @@ private:
     void parseGpgga(const QStringList& parts);
     void parseGprmc(const QStringList& parts);
     void parseGpgsa(const QStringList& parts);
-    bool configurePort(int fd);
 
     QString m_portName;
     int m_baudRate;
-    int m_fd;
-    void* m_notifier;
+    QSerialPort* m_serial;
     bool m_connected;
     LocationData m_currentLocation;
     QByteArray m_buffer;

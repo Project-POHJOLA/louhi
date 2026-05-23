@@ -3,6 +3,21 @@ include_directories(${PLUGIN_INCLUDE_DIR})
 
 set(CMAKE_AUTOMOC ON)
 
+if(APPLE)
+    set(PLUGIN_RPATH "@loader_path/../lib")
+else()
+    set(PLUGIN_RPATH "$ORIGIN/../lib")
+endif()
+
+macro(set_plugin_properties TARGET)
+    set_target_properties(${TARGET} PROPERTIES
+        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
+        PREFIX ""
+        INSTALL_RPATH "${PLUGIN_RPATH}"
+        BUILD_RPATH_USE_ORIGIN ON
+    )
+endmacro()
+
 add_library(natsplugin SHARED
     natsplugin.h
     natsplugin.cpp
@@ -14,12 +29,7 @@ add_library(natsplugin SHARED
 
 target_link_libraries(natsplugin plugininterface Qt5::Widgets Qt5::Core Qt5::Gui nats_static)
 
-set_target_properties(natsplugin PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
-    PREFIX ""
-    INSTALL_RPATH "$ORIGIN/../lib"
-    BUILD_RPATH_USE_ORIGIN ON
-)
+set_plugin_properties(natsplugin)
 
 add_library(messageviewerplugin SHARED
     messageviewerplugin.h
@@ -28,12 +38,7 @@ add_library(messageviewerplugin SHARED
 
 target_link_libraries(messageviewerplugin plugininterface Qt5::Widgets Qt5::Core Qt5::Gui)
 
-set_target_properties(messageviewerplugin PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
-    PREFIX ""
-    INSTALL_RPATH "$ORIGIN/../lib"
-    BUILD_RPATH_USE_ORIGIN ON
-)
+set_plugin_properties(messageviewerplugin)
 
 add_library(takplugin SHARED
     takplugin.h
@@ -48,12 +53,7 @@ add_library(takplugin SHARED
 
 target_link_libraries(takplugin plugininterface Qt5::Widgets Qt5::Core Qt5::Gui Qt5::Network Qt5::Xml OpenSSL::Crypto)
 
-set_target_properties(takplugin PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
-    PREFIX ""
-    INSTALL_RPATH "$ORIGIN/../lib"
-    BUILD_RPATH_USE_ORIGIN ON
-)
+set_plugin_properties(takplugin)
 
 add_library(locationplugin SHARED
     locationplugin.h
@@ -64,14 +64,9 @@ add_library(locationplugin SHARED
     gpsprovider.cpp
 )
 
-target_link_libraries(locationplugin plugininterface Qt5::Widgets Qt5::Core Qt5::Gui Qt5::Network)
+target_link_libraries(locationplugin plugininterface Qt5::Widgets Qt5::Core Qt5::Gui Qt5::Network Qt5::SerialPort)
 
-set_target_properties(locationplugin PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
-    PREFIX ""
-    INSTALL_RPATH "$ORIGIN/../lib"
-    BUILD_RPATH_USE_ORIGIN ON
-)
+set_plugin_properties(locationplugin)
 
 add_library(mapplugin SHARED
     mapplugin.h
@@ -82,12 +77,7 @@ add_library(mapplugin SHARED
 
 target_link_libraries(mapplugin plugininterface Qt5::Widgets Qt5::Core Qt5::Gui Qt5::Network)
 
-set_target_properties(mapplugin PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
-    PREFIX ""
-    INSTALL_RPATH "$ORIGIN/../lib"
-    BUILD_RPATH_USE_ORIGIN ON
-)
+set_plugin_properties(mapplugin)
 
 # ---------------------------------------------------------------------------
 # OsgEarth Map Plugin (optional, requires osgEarth)
@@ -112,12 +102,7 @@ if(osgEarth_FOUND)
         ${OSGEARTH_INCLUDE_DIRS}
     )
 
-    set_target_properties(osgearthplugin PROPERTIES
-        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
-        PREFIX ""
-        INSTALL_RPATH "$ORIGIN/../lib"
-        BUILD_RPATH_USE_ORIGIN ON
-    )
+    set_plugin_properties(osgearthplugin)
 
     message(STATUS "osgEarth found - building osgearthplugin")
 else()

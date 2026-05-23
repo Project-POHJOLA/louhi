@@ -12,7 +12,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(Qt5 REQUIRED COMPONENTS Widgets Core Gui Network Xml)
+find_package(Qt5 REQUIRED COMPONENTS Widgets Core Gui Network Xml SerialPort)
 find_package(OpenSSL REQUIRED)
 
 # ---------------------------------------------------------------------------
@@ -112,17 +112,17 @@ add_executable(louhi
 
 target_link_libraries(louhi plugininterface Qt5::Widgets Qt5::Gui)
 
-# Set RPATH for portable deployment: look for libs in ../lib/ relative to binary (bin/ -> lib/)
-set_target_properties(louhi PROPERTIES
-    INSTALL_RPATH "$ORIGIN/../lib"
-)
-
-target_link_libraries(louhi plugininterface Qt5::Widgets Qt5::Gui)
-
-# Set RPATH for portable deployment: look for libs in ../lib/ relative to binary (bin/ -> lib/)
-set_target_properties(louhi PROPERTIES
-    INSTALL_RPATH "$ORIGIN/../lib"
-)
+# Set RPATH for portable deployment: look for libs in ../lib/ relative to binary
+if(APPLE)
+    set_target_properties(louhi PROPERTIES
+        INSTALL_RPATH "@executable_path/../lib"
+        MACOSX_RPATH ON
+    )
+else()
+    set_target_properties(louhi PROPERTIES
+        INSTALL_RPATH "$ORIGIN/../lib"
+    )
+endif()
 
 # ---------------------------------------------------------------------------
 # Optional osgEarth dependency

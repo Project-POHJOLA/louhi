@@ -57,7 +57,13 @@ void PluginManager::discoverPlugins(const QString& pluginDir)
     }
 
     QStringList filters;
-    filters << "*.so" << "*.dylib";
+#ifdef Q_OS_WIN
+    filters << "*.dll";
+#elif defined(Q_OS_MACOS)
+    filters << "*.dylib" << "*.so";
+#else
+    filters << "*.so";
+#endif
     QFileInfoList files = dir.entryInfoList(filters, QDir::Files);
 
     for (const QFileInfo& fileInfo : files) {

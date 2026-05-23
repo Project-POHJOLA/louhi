@@ -5,20 +5,19 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QTimer>
-#include <QSocketNotifier>
+#include <QSerialPortInfo>
 
-#include <fcntl.h>
-#include <unistd.h>
-#include <termios.h>
-#include <sys/ioctl.h>
-#include <errno.h>
+#ifdef Q_OS_WIN
+static const QString DEFAULT_SERIAL_PORT = "COM1";
+#else
+static const QString DEFAULT_SERIAL_PORT = "/dev/ttyUSB0";
+#endif
 
 SerialGpsProvider::SerialGpsProvider(QObject* parent)
     : GpsProvider(parent)
-    , m_portName("/dev/ttyUSB0")
+    , m_portName(DEFAULT_SERIAL_PORT)
     , m_baudRate(9600)
-    , m_fd(-1)
-    , m_notifier(nullptr)
+    , m_serial(nullptr)
     , m_connected(false)
 {
 }
@@ -30,7 +29,7 @@ SerialGpsProvider::~SerialGpsProvider()
 
 void SerialGpsProvider::setConfig(const QJsonObject& config)
 {
-    m_portName = config.value("port").toString("/dev/ttyUSB0");
+    m_portName = config.value("port").toString(DEFAULT_SERIAL_PORT);
     m_baudRate = config.value("baudRate").toInt(9600);
 }
 
@@ -42,71 +41,32 @@ QJsonObject SerialGpsProvider::getConfig() const
     return config;
 }
 
-static speed_t baudRateToConstant(int baud)
-{
-    switch (baud) {
-        case 1200: return B1200;
-        case 2400: return B2400;
-        case 4800: return B4800;
-        case 9600: return B9600;
-        case 19200: return B19200;
-        case 38400: return B38400;
-        case 57600: return B57600;
-        case 115200: return B115200;
-        default: return B9600;
-    }
-}
-
-bool SerialGpsProvider::configurePort(int fd)
-{
-    struct termios tty;
-    if (tcgetattr(fd, &tty) != 0) {
-        return false;
-    }
-
-    cfsetispeed(&tty, baudRateToConstant(m_baudRate));
-    cfsetospeed(&tty, baudRateToConstant(m_baudRate));
-
-    tty.c_cflag = (tty.c_cflag & ~CSIZE) | CS8;
-    tty.c_cflag |= (CLOCAL | CREAD);
-    tty.c_cflag &= ~(PARENB | PARODD);
-    tty.c_cflag &= ~CSTOPB;
-    tty.c_cflag &= ~CRTSCTS;
-
-    tty.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL | IXON);
-    tty.c_oflag &= ~OPOST;
-    tty.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
-
-    tty.c_cc[VMIN] = 1;
-    tty.c_cc[VTIME] = 0;
-
-    if (tcsetattr(fd, TCSANOW, &tty) != 0) {
-        return false;
-    }
-
-    tcflush(fd, TCIOFLUSH);
-    return true;
-}
-
 bool SerialGpsProvider::connect()
 {
     if (m_connected) return true;
 
-    m_fd = ::open(m_portName.toUtf8().constData(), O_RDWR | O_NOCTTY | O_NONBLOCK);
-    if (m_fd < 0) {
-        emit error("Failed to open " + m_portName + ": " + QString(strerror(errno)));
+    m_serial = new QSerialPort(m_portName, this);
+
+    if (!m_serial->setBaudRate(m_baudRate)) {
+        emit error("Failed to set baud rate " + QString::number(m_baudRate) + " on " + m_portName);
+        delete m_serial;
+        m_serial = nullptr;
         return false;
     }
 
-    if (!configurePort(m_fd)) {
-        emit error("Failed to configure " + m_portName);
-        ::close(m_fd);
-        m_fd = -1;
+    m_serial->setDataBits(QSerialPort::Data8);
+    m_serial->setParity(QSerialPort::NoParity);
+    m_serial->setStopBits(QSerialPort::OneStop);
+    m_serial->setFlowControl(QSerialPort::NoFlowControl);
+
+    if (!m_serial->open(QIODevice::ReadOnly)) {
+        emit error("Failed to open " + m_portName + ": " + m_serial->errorString());
+        delete m_serial;
+        m_serial = nullptr;
         return false;
     }
 
-    m_notifier = new QSocketNotifier(m_fd, QSocketNotifier::Read, this);
-    QObject::connect(static_cast<QSocketNotifier*>(m_notifier), &QSocketNotifier::activated,
+    QObject::connect(m_serial, &QSerialPort::readyRead,
             this, &SerialGpsProvider::readSerialData);
 
     m_connected = true;
@@ -116,15 +76,10 @@ bool SerialGpsProvider::connect()
 
 void SerialGpsProvider::disconnect()
 {
-    if (m_notifier) {
-        static_cast<QSocketNotifier*>(m_notifier)->setEnabled(false);
-        delete static_cast<QSocketNotifier*>(m_notifier);
-        m_notifier = nullptr;
-    }
-
-    if (m_fd >= 0) {
-        ::close(m_fd);
-        m_fd = -1;
+    if (m_serial) {
+        m_serial->close();
+        delete m_serial;
+        m_serial = nullptr;
     }
 
     m_connected = false;
@@ -144,14 +99,10 @@ LocationData SerialGpsProvider::getCurrentLocation() const
 
 void SerialGpsProvider::readSerialData()
 {
-    if (m_fd < 0) return;
+    if (!m_serial || !m_serial->isOpen()) return;
 
-    char buf[512];
-    ssize_t n = ::read(m_fd, buf, sizeof(buf) - 1);
-    if (n <= 0) return;
-
-    buf[n] = '\0';
-    m_buffer.append(buf, n);
+    QByteArray data = m_serial->readAll();
+    m_buffer.append(data);
 
     int newlinePos;
     while ((newlinePos = m_buffer.indexOf('\n')) >= 0) {
