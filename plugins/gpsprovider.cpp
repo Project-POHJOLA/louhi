@@ -413,3 +413,113 @@ void ManualProvider::setLocation(double lat, double lon, double alt)
 
     emit locationUpdated(m_currentLocation);
 }
+
+#ifdef QT_POSITIONING_LIB
+
+SystemPositionProvider::SystemPositionProvider(QObject* parent)
+    : GpsProvider(parent)
+    , m_source(nullptr)
+    , m_connected(false)
+{
+    m_source = QGeoPositionInfoSource::createDefaultSource(this);
+    if (m_source) {
+        m_sourceName = m_source->metaObject()->className();
+        QObject::connect(m_source, &QGeoPositionInfoSource::positionUpdated,
+                this, &SystemPositionProvider::onPositionUpdated);
+        QObject::connect(m_source,
+                SIGNAL(error(QGeoPositionInfoSource::Error)),
+                this,
+                SLOT(onSourceError(QGeoPositionInfoSource::Error)));
+    }
+}
+
+SystemPositionProvider::~SystemPositionProvider()
+{
+    disconnect();
+}
+
+QString SystemPositionProvider::providerId() const
+{
+    return "system_" + m_sourceName;
+}
+
+bool SystemPositionProvider::connect()
+{
+    if (m_connected) return true;
+
+    if (!m_source) {
+        m_source = QGeoPositionInfoSource::createDefaultSource(this);
+        if (!m_source) {
+            emit error("No system location source available");
+            return false;
+        }
+        QObject::connect(m_source, &QGeoPositionInfoSource::positionUpdated,
+                this, &SystemPositionProvider::onPositionUpdated);
+        QObject::connect(m_source,
+                SIGNAL(error(QGeoPositionInfoSource::Error)),
+                this,
+                SLOT(onSourceError(QGeoPositionInfoSource::Error)));
+        m_sourceName = m_source->metaObject()->className();
+    }
+
+    m_source->startUpdates();
+    m_connected = true;
+    emit connected();
+    return true;
+}
+
+void SystemPositionProvider::disconnect()
+{
+    if (m_source)
+        m_source->stopUpdates();
+    m_connected = false;
+    m_currentLocation = LocationData();
+    emit disconnected();
+}
+
+bool SystemPositionProvider::isConnected() const
+{
+    return m_connected;
+}
+
+LocationData SystemPositionProvider::getCurrentLocation() const
+{
+    return m_currentLocation;
+}
+
+void SystemPositionProvider::setConfig(const QJsonObject& config)
+{
+    Q_UNUSED(config);
+}
+
+QJsonObject SystemPositionProvider::getConfig() const
+{
+    return QJsonObject();
+}
+
+void SystemPositionProvider::onPositionUpdated(const QGeoPositionInfo& info)
+{
+    if (!info.isValid()) return;
+
+    m_currentLocation.latitude = info.coordinate().latitude();
+    m_currentLocation.longitude = info.coordinate().longitude();
+    m_currentLocation.altitude = info.coordinate().altitude();
+    m_currentLocation.speed = info.attribute(QGeoPositionInfo::GroundSpeed);
+    m_currentLocation.course = info.attribute(QGeoPositionInfo::Direction);
+    m_currentLocation.hdop = info.attribute(QGeoPositionInfo::HorizontalAccuracy);
+    m_currentLocation.valid = true;
+    m_currentLocation.source = providerId();
+
+    emit locationUpdated(m_currentLocation);
+}
+
+void SystemPositionProvider::onSourceError(QGeoPositionInfoSource::Error err)
+{
+    if (err == QGeoPositionInfoSource::AccessError) {
+        emit error("Location access denied. Check system privacy settings.");
+    } else if (err != QGeoPositionInfoSource::NoError) {
+        emit error("System location error: " + QString::number(static_cast<int>(err)));
+    }
+}
+
+#endif

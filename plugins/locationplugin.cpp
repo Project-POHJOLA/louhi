@@ -33,7 +33,7 @@ LocationPlugin::LocationPlugin(QObject* parent)
     m_info.type = PluginType::Communication;
     m_info.enabled = true;
     m_info.dependencies = QStringList();
-    m_info.capabilities = QStringList() << "Serial GPS" << "GPSD" << "Manual" << "Failover" << "Request-Reply";
+    m_info.capabilities = QStringList() << "Serial GPS" << "GPSD" << "Manual" << "System Location" << "Failover" << "Request-Reply";
     m_info.subscribeTopics = QStringList() << "location.request";
     m_info.publishTopics = QStringList() << "location.position" << "location.position.reply";
 
@@ -518,6 +518,15 @@ GpsProvider* LocationPlugin::createProvider(const LocationProviderConfig& config
         ManualProvider* provider = new ManualProvider(this);
         provider->setConfig(config.providerConfig);
         return provider;
+    } else if (config.type == "system") {
+#ifdef QT_POSITIONING_LIB
+        SystemPositionProvider* provider = new SystemPositionProvider(this);
+        provider->setConfig(config.providerConfig);
+        return provider;
+#else
+        qWarning() << "Location Plugin: System location provider not available (Qt5::Positioning missing)";
+        return nullptr;
+#endif
     }
 
     return nullptr;

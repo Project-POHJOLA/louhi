@@ -29,7 +29,7 @@ LocationSettingsDialog::LocationSettingsDialog(QWidget* parent)
     QHBoxLayout* mainTypeLayout = new QHBoxLayout();
     mainTypeLayout->addWidget(new QLabel(tr("Type:"), mainProviderGroup));
     m_mainProviderType = new QComboBox(mainProviderGroup);
-    m_mainProviderType->addItems({tr("Serial GPS"), tr("GPSD"), tr("Manual")});
+    m_mainProviderType->addItems({tr("Serial GPS"), tr("GPSD"), tr("Manual"), tr("System Location")});
     mainTypeLayout->addWidget(m_mainProviderType);
     mainTypeLayout->addStretch();
     mainProviderLayout->addLayout(mainTypeLayout);
@@ -77,6 +77,14 @@ LocationSettingsDialog::LocationSettingsDialog(QWidget* parent)
     manualLayout->addRow(tr("Altitude (m):"), m_manualAltSpin);
     m_mainProviderTabs->addTab(manualWidget, tr("Manual"));
 
+    QWidget* systemWidget = new QWidget();
+    QVBoxLayout* systemLayout = new QVBoxLayout(systemWidget);
+    QLabel* systemLabel = new QLabel(tr("Uses the operating system's built-in\nlocation services (GeoClue on Linux,\nCore Location on macOS, Windows\nLocation API on Windows).\n\nNo additional configuration required."), systemWidget);
+    systemLabel->setWordWrap(true);
+    systemLayout->addWidget(systemLabel);
+    systemLayout->addStretch();
+    m_mainProviderTabs->addTab(systemWidget, tr("System"));
+
     mainProviderLayout->addWidget(m_mainProviderTabs);
     mainLayout->addWidget(mainProviderGroup);
 
@@ -86,7 +94,7 @@ LocationSettingsDialog::LocationSettingsDialog(QWidget* parent)
     QHBoxLayout* fallbackTypeLayout = new QHBoxLayout();
     fallbackTypeLayout->addWidget(new QLabel(tr("Type:"), fallbackProviderGroup));
     m_fallbackProviderType = new QComboBox(fallbackProviderGroup);
-    m_fallbackProviderType->addItems({tr("None"), tr("Serial GPS"), tr("GPSD"), tr("Manual")});
+    m_fallbackProviderType->addItems({tr("None"), tr("Serial GPS"), tr("GPSD"), tr("Manual"), tr("System Location")});
     fallbackTypeLayout->addWidget(m_fallbackProviderType);
     fallbackTypeLayout->addStretch();
     fallbackProviderLayout->addLayout(fallbackTypeLayout);
@@ -133,6 +141,14 @@ LocationSettingsDialog::LocationSettingsDialog(QWidget* parent)
     m_manualAltSpinFallback->setValue(0.0);
     manualLayoutFallback->addRow(tr("Altitude (m):"), m_manualAltSpinFallback);
     m_fallbackProviderTabs->addTab(manualWidgetFallback, tr("Manual"));
+
+    QWidget* systemWidgetFallback = new QWidget();
+    QVBoxLayout* systemLayoutFallback = new QVBoxLayout(systemWidgetFallback);
+    QLabel* systemLabelFallback = new QLabel(tr("Uses the operating system's built-in\nlocation services (GeoClue on Linux,\nCore Location on macOS, Windows\nLocation API on Windows).\n\nNo additional configuration required."), systemWidgetFallback);
+    systemLabelFallback->setWordWrap(true);
+    systemLayoutFallback->addWidget(systemLabelFallback);
+    systemLayoutFallback->addStretch();
+    m_fallbackProviderTabs->addTab(systemWidgetFallback, tr("System"));
 
     fallbackProviderLayout->addWidget(m_fallbackProviderTabs);
     mainLayout->addWidget(fallbackProviderGroup);
@@ -291,6 +307,12 @@ void LocationSettingsDialog::loadProviderToForm(const QString& prefix, const Loc
             m_manualLonSpinFallback->setValue(config.providerConfig.value("longitude").toDouble(0.0));
             m_manualAltSpinFallback->setValue(config.providerConfig.value("altitude").toDouble(0.0));
         }
+    } else if (config.type == "system") {
+        if (prefix == "main") {
+            m_mainProviderType->setCurrentIndex(3);
+        } else {
+            m_fallbackProviderType->setCurrentIndex(4);
+        }
     }
 }
 
@@ -311,12 +333,15 @@ LocationProviderConfig LocationSettingsDialog::saveFormToProvider(const QString&
             config.name = tr("GPSD");
             config.providerConfig["host"] = m_gpsdHostEdit->text();
             config.providerConfig["port"] = m_gpsdPortSpin->value();
-        } else {
+        } else if (typeIndex == 2) {
             config.type = "manual";
             config.name = tr("Manual");
             config.providerConfig["latitude"] = m_manualLatSpin->value();
             config.providerConfig["longitude"] = m_manualLonSpin->value();
             config.providerConfig["altitude"] = m_manualAltSpin->value();
+        } else {
+            config.type = "system";
+            config.name = tr("System Location");
         }
     } else {
         int typeIndex = m_fallbackProviderType->currentIndex();
@@ -334,12 +359,15 @@ LocationProviderConfig LocationSettingsDialog::saveFormToProvider(const QString&
             config.name = tr("GPSD (Fallback)");
             config.providerConfig["host"] = m_gpsdHostEditFallback->text();
             config.providerConfig["port"] = m_gpsdPortSpinFallback->value();
-        } else {
+        } else if (typeIndex == 3) {
             config.type = "manual";
             config.name = tr("Manual (Fallback)");
             config.providerConfig["latitude"] = m_manualLatSpinFallback->value();
             config.providerConfig["longitude"] = m_manualLonSpinFallback->value();
             config.providerConfig["altitude"] = m_manualAltSpinFallback->value();
+        } else {
+            config.type = "system";
+            config.name = tr("System Location (Fallback)");
         }
     }
 

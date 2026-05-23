@@ -66,6 +66,11 @@ add_library(locationplugin SHARED
 
 target_link_libraries(locationplugin plugininterface Qt5::Widgets Qt5::Core Qt5::Gui Qt5::Network Qt5::SerialPort)
 
+if(Qt5Positioning_FOUND)
+    target_link_libraries(locationplugin Qt5::Positioning)
+    target_compile_definitions(locationplugin PRIVATE QT_POSITIONING_LIB)
+endif()
+
 set_plugin_properties(locationplugin)
 
 add_library(mapplugin SHARED

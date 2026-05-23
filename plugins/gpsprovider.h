@@ -6,6 +6,10 @@
 #include <QJsonObject>
 #include <QSerialPort>
 
+#ifdef QT_POSITIONING_LIB
+#include <QGeoPositionInfoSource>
+#endif
+
 struct LocationData {
     double latitude;
     double longitude;
@@ -136,5 +140,36 @@ private:
     bool m_connected;
     LocationData m_currentLocation;
 };
+
+#ifdef QT_POSITIONING_LIB
+class SystemPositionProvider : public GpsProvider
+{
+    Q_OBJECT
+
+public:
+    explicit SystemPositionProvider(QObject* parent = nullptr);
+    ~SystemPositionProvider();
+
+    QString providerType() const override { return "system"; }
+    QString providerId() const override;
+    bool connect() override;
+    void disconnect() override;
+    bool isConnected() const override;
+    LocationData getCurrentLocation() const override;
+
+    void setConfig(const QJsonObject& config) override;
+    QJsonObject getConfig() const override;
+
+private slots:
+    void onPositionUpdated(const QGeoPositionInfo& info);
+    void onSourceError(QGeoPositionInfoSource::Error err);
+
+private:
+    QGeoPositionInfoSource* m_source;
+    bool m_connected;
+    LocationData m_currentLocation;
+    QString m_sourceName;
+};
+#endif
 
 #endif

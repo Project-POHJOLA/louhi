@@ -13,6 +13,7 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
 find_package(Qt5 REQUIRED COMPONENTS Widgets Core Gui Network Xml SerialPort)
+find_package(Qt5Positioning QUIET)
 find_package(OpenSSL REQUIRED)
 
 # ---------------------------------------------------------------------------
