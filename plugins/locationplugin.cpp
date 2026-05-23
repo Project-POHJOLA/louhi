@@ -33,13 +33,15 @@ LocationPlugin::LocationPlugin(QObject* parent)
     m_info.type = PluginType::Communication;
     m_info.enabled = true;
     m_info.dependencies = QStringList();
-    m_info.capabilities = QStringList() << "Serial GPS" << "GPSD" << "Manual" << "System Location" << "Failover" << "Request-Reply";
+    m_info.capabilities = QStringList()
+        << tr("Serial GPS") << tr("GPSD") << tr("Manual")
+        << tr("System Location") << tr("Failover") << tr("Request-Reply");
     m_info.subscribeTopics = QStringList() << "location.request";
     m_info.publishTopics = QStringList() << "location.position" << "location.position.reply";
 
     m_mainConfig.id = "manual_main";
     m_mainConfig.type = "manual";
-    m_mainConfig.name = "Manual";
+    m_mainConfig.name = tr("Manual");
     m_mainConfig.enabled = true;
     m_mainConfig.providerConfig["latitude"] = 60.1699;
     m_mainConfig.providerConfig["longitude"] = 24.9384;
@@ -48,7 +50,7 @@ LocationPlugin::LocationPlugin(QObject* parent)
 
     m_fallbackConfig.id = "none";
     m_fallbackConfig.type = "none";
-    m_fallbackConfig.name = "None";
+    m_fallbackConfig.name = tr("None");
     m_fallbackConfig.enabled = false;
 
     m_broadcastTimer = new QTimer(this);
@@ -302,19 +304,19 @@ void LocationPlugin::setConfig(const QJsonObject& config)
     if (config.contains("mainProvider")) {
         QJsonObject mainObj = config.value("mainProvider").toObject();
         m_mainConfig.type = mainObj.value("type").toString("manual");
-        m_mainConfig.name = mainObj.value("name").toString("Manual");
+        m_mainConfig.name = mainObj.value("name").toString(tr("Manual"));
         m_mainConfig.enabled = mainObj.value("enabled").toBool(true);
         m_mainConfig.providerConfig = mainObj.value("providerConfig").toObject();
-        m_mainConfig.id = m_mainConfig.type + "_" + m_mainConfig.name.toLower().replace(" ", "_");
+        m_mainConfig.id = m_mainConfig.type;
     }
 
     if (config.contains("fallbackProvider")) {
         QJsonObject fallbackObj = config.value("fallbackProvider").toObject();
         m_fallbackConfig.type = fallbackObj.value("type").toString("none");
-        m_fallbackConfig.name = fallbackObj.value("name").toString("None");
+        m_fallbackConfig.name = fallbackObj.value("name").toString(tr("None"));
         m_fallbackConfig.enabled = fallbackObj.value("enabled").toBool(false);
         m_fallbackConfig.providerConfig = fallbackObj.value("providerConfig").toObject();
-        m_fallbackConfig.id = m_fallbackConfig.type + "_" + m_fallbackConfig.name.toLower().replace(" ", "_");
+        m_fallbackConfig.id = m_fallbackConfig.type;
     }
 
     m_broadcastOnChange = config.value("broadcastOnChange").toBool(true);
@@ -341,20 +343,20 @@ void LocationPlugin::onLocationUpdated(const LocationData& location)
     }
 }
 
-void LocationPlugin::onMainProviderError(const QString& error)
+void LocationPlugin::onMainProviderError(const QString& err)
 {
-    qDebug() << "Location Plugin: Main provider error:" << error;
-    emit statusChanged("Main provider error: " + error);
+    qDebug() << "Location Plugin: Main provider error:" << err;
+    emit statusChanged(tr("Main provider error: %1").arg(err));
 
     if (m_fallbackProvider && m_fallbackConfig.enabled) {
         switchToFallback();
     }
 }
 
-void LocationPlugin::onFallbackProviderError(const QString& error)
+void LocationPlugin::onFallbackProviderError(const QString& err)
 {
-    qDebug() << "Location Plugin: Fallback provider error:" << error;
-    emit statusChanged("Fallback provider error: " + error);
+    qDebug() << "Location Plugin: Fallback provider error:" << err;
+    emit statusChanged(tr("Fallback provider error: %1").arg(err));
 }
 
 void LocationPlugin::onLocationRequest(const QString& topic, const QString& payload)

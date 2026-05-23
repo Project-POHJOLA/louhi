@@ -8,11 +8,9 @@
 #ifdef Q_OS_WIN
 static const QString DEFAULT_SERIAL_PORT = "COM1";
 static const QString DEFAULT_SERIAL_PORT2 = "COM2";
-static const QString PLACEHOLDER_SERIAL = "COM1, COM2, etc.";
 #else
 static const QString DEFAULT_SERIAL_PORT = "/dev/ttyUSB0";
 static const QString DEFAULT_SERIAL_PORT2 = "/dev/ttyUSB1";
-static const QString PLACEHOLDER_SERIAL = "/dev/ttyUSB0 or /dev/ttyACM0";
 #endif
 
 LocationSettingsDialog::LocationSettingsDialog(QWidget* parent)
@@ -39,7 +37,11 @@ LocationSettingsDialog::LocationSettingsDialog(QWidget* parent)
     QWidget* serialWidget = new QWidget();
     QFormLayout* serialLayout = new QFormLayout(serialWidget);
     m_serialPortEdit = new QLineEdit(DEFAULT_SERIAL_PORT, serialWidget);
-    m_serialPortEdit->setPlaceholderText(tr(PLACEHOLDER_SERIAL.toUtf8().constData()));
+#ifdef Q_OS_WIN
+    m_serialPortEdit->setPlaceholderText(tr("COM1, COM2, etc."));
+#else
+    m_serialPortEdit->setPlaceholderText(tr("/dev/ttyUSB0 or /dev/ttyACM0"));
+#endif
     serialLayout->addRow(tr("Serial Port:"), m_serialPortEdit);
     m_serialBaudSpin = new QSpinBox(serialWidget);
     m_serialBaudSpin->setRange(1200, 115200);
@@ -104,7 +106,11 @@ LocationSettingsDialog::LocationSettingsDialog(QWidget* parent)
     QWidget* serialWidgetFallback = new QWidget();
     QFormLayout* serialLayoutFallback = new QFormLayout(serialWidgetFallback);
     m_serialPortEditFallback = new QLineEdit(DEFAULT_SERIAL_PORT2, serialWidgetFallback);
-    m_serialPortEditFallback->setPlaceholderText(tr(PLACEHOLDER_SERIAL.toUtf8().constData()));
+#ifdef Q_OS_WIN
+    m_serialPortEditFallback->setPlaceholderText(tr("COM1, COM2, etc."));
+#else
+    m_serialPortEditFallback->setPlaceholderText(tr("/dev/ttyUSB0 or /dev/ttyACM0"));
+#endif
     serialLayoutFallback->addRow(tr("Serial Port:"), m_serialPortEditFallback);
     m_serialBaudSpinFallback = new QSpinBox(serialWidgetFallback);
     m_serialBaudSpinFallback->setRange(1200, 115200);
@@ -371,6 +377,6 @@ LocationProviderConfig LocationSettingsDialog::saveFormToProvider(const QString&
         }
     }
 
-    config.id = config.type + "_" + config.name.toLower().replace(" ", "_");
+    config.id = config.type;
     return config;
 }

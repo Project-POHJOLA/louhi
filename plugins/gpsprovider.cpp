@@ -48,7 +48,7 @@ bool SerialGpsProvider::connect()
     m_serial = new QSerialPort(m_portName, this);
 
     if (!m_serial->setBaudRate(m_baudRate)) {
-        emit error("Failed to set baud rate " + QString::number(m_baudRate) + " on " + m_portName);
+        emit error(tr("Failed to set baud rate %1 on %2").arg(m_baudRate).arg(m_portName));
         delete m_serial;
         m_serial = nullptr;
         return false;
@@ -60,7 +60,7 @@ bool SerialGpsProvider::connect()
     m_serial->setFlowControl(QSerialPort::NoFlowControl);
 
     if (!m_serial->open(QIODevice::ReadOnly)) {
-        emit error("Failed to open " + m_portName + ": " + m_serial->errorString());
+        emit error(tr("Failed to open %1: %2").arg(m_portName).arg(m_serial->errorString()));
         delete m_serial;
         m_serial = nullptr;
         return false;
@@ -265,7 +265,7 @@ bool GpsdProvider::connect()
     socket->connectToHost(m_host, m_port);
 
     if (!socket->waitForConnected(3000)) {
-        emit error("Failed to connect to GPSD at " + m_host + ":" + QString::number(m_port));
+        emit error(tr("Failed to connect to GPSD at %1:%2").arg(m_host).arg(m_port));
         delete socket;
         return false;
     }
@@ -450,7 +450,7 @@ bool SystemPositionProvider::connect()
     if (!m_source) {
         m_source = QGeoPositionInfoSource::createDefaultSource(this);
         if (!m_source) {
-            emit error("No system location source available");
+            emit error(tr("No system location source available"));
             return false;
         }
         QObject::connect(m_source, &QGeoPositionInfoSource::positionUpdated,
@@ -516,9 +516,9 @@ void SystemPositionProvider::onPositionUpdated(const QGeoPositionInfo& info)
 void SystemPositionProvider::onSourceError(QGeoPositionInfoSource::Error err)
 {
     if (err == QGeoPositionInfoSource::AccessError) {
-        emit error("Location access denied. Check system privacy settings.");
+        emit error(tr("Location access denied. Check system privacy settings."));
     } else if (err != QGeoPositionInfoSource::NoError) {
-        emit error("System location error: " + QString::number(static_cast<int>(err)));
+        emit error(tr("System location error: %1").arg(static_cast<int>(err)));
     }
 }
 
