@@ -42,7 +42,7 @@ graph TB
     subgraph "External"
         NATS[NATS Server]
         TAKS[TAK Servers]
-        GPS[GPS / GPSD / Manual]
+        GPS[GPS / GPSD / Manual / System]
     end
 
     Main --> MW
@@ -142,7 +142,10 @@ Connects to one or more Team Awareness Kit servers via TCP/TLS using CoT XML. Co
 | Subscribe | `location.request` |
 | Publish | `location.position`, `location.position.reply` |
 
-Provides location from Serial GPS (NMEA), GPSD, or Manual entry with automatic main/fallback failover. Broadcasts location as JSON on change or at a configurable interval.
+Provides location from Serial GPS (NMEA via QSerialPort), GPSD, Manual entry,
+or System Location (OS location services via Qt5::Positioning) with automatic
+main/fallback failover. Broadcasts location as JSON on change or at a
+configurable interval.
 
 ### MessageViewer Plugin
 
@@ -253,7 +256,7 @@ sequenceDiagram
 ```mermaid
 graph TB
     subgraph "External World"
-        GPS_HW[Serial GPS / GPSD / Manual]
+        GPS_HW[Serial GPS / GPSD / Manual / System]
         NATS_SRV[NATS Server]
         TAK_SRV[TAK Servers]
     end

@@ -4,7 +4,9 @@
 
 ### Overview
 
-LOUHI uses Qt's plugin system to load plugins at runtime as shared libraries (`.so` files). Each plugin must implement the `PluginInterface` and provide a JSON metadata file.
+LOUHI uses Qt's plugin system to load plugins at runtime as shared libraries
+(`.so` on Linux, `.dylib` on macOS, `.dll` on Windows). Each plugin must
+implement the `PluginInterface` and provide a JSON metadata file.
 
 ### Plugin Interface
 
@@ -256,11 +258,7 @@ add_library(myplugin SHARED
 
 target_link_libraries(myplugin plugininterface Qt5::Widgets Qt5::Core Qt5::Gui)
 
-set_target_properties(myplugin PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins
-    PREFIX ""
-    INSTALL_RPATH "$ORIGIN/../lib"    # for portable deployment
-)
+set_plugin_properties(myplugin)
 ```
 
 ### Plugin Lifecycle Flow
@@ -302,20 +300,33 @@ The build system can create a self-contained portable folder with all dependenci
 
 ### Prerequisites
 
-- Qt5, OpenSSL: installed system-wide for building (libraries are bundled automatically)
+- Qt5, OpenSSL: installed system-wide for building (libraries are bundled
+  automatically)
 - NATS C Client: git submodule at `deps/nats.c`, built statically
-- `chrpath` or `patchelf`: optional, sets RPATH on bundled binaries
+- Linux: `chrpath` or `patchelf` for setting RPATH; `bash` for deploy script
+- macOS: `macdeployqt` (included with Qt) for bundling
+- Windows: `windeployqt` (included with Qt) for bundling
 
 ### Building the Portable Bundle
 
 ```bash
-git submodule update --init --recursive
-mkdir build && cd build
+# Linux
 cmake .. -DBUILD_PORTABLE=ON
 make portable-deploy
+# Output: build/Louhi.app/ + run.sh launcher
+
+# macOS
+cmake .. -DBUILD_PORTABLE=ON
+make portable-deploy
+# Creates a .app bundle via macdeployqt
+
+# Windows
+cmake .. -DBUILD_PORTABLE=ON
+make portable-deploy
+# Creates deploy directory via windeployqt
 ```
 
-Output: `build/Louhi.app/` containing:
+Output (Linux): `build/Louhi.app/` containing:
 
 ```
 Louhi.app/
@@ -340,7 +351,11 @@ Louhi.app/
 └── run.sh                       # launcher script (sets LD_LIBRARY_PATH)
 ```
 
-Copy the entire `Louhi.app/` directory to a USB stick and run `./run.sh` on any compatible Linux system.
+Copy the entire `Louhi.app/` directory to a USB stick and run `./run.sh`
+
+> **Note:** The portable bundle format above is Linux-specific. On macOS,
+> `macdeployqt` produces a `.app` bundle. On Windows, `windeployqt` produces
+> a flat directory with all DLLs alongside the executable.
 
 ### Best Practices
 

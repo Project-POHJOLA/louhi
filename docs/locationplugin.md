@@ -7,16 +7,18 @@
 
 ## Description
 
-Location provider plugin supporting three GPS backends with automatic failover:
-Serial GPS (NMEA sentences over POSIX serial), GPSD (TCP connection to gpsd
-daemon), and Manual (fixed position from config). Broadcasts location
-data on the message bus and responds to request-reply queries.
+Location provider plugin supporting four backends with automatic failover:
+Serial GPS (NMEA sentences via QSerialPort), GPSD (TCP connection to gpsd
+daemon), Manual (fixed position from config), and System Location (OS location
+services via Qt Positioning). Broadcasts location data on the message bus and
+responds to request-reply queries.
 
 ## Capabilities
 
 - Serial GPS
 - GPSD
 - Manual
+- System Location
 - Failover
 - Request-Reply
 
@@ -32,8 +34,11 @@ data on the message bus and responds to request-reply queries.
 - `plugininterface` (shared library)
 - `Qt5::Widgets`, `Qt5::Core`, `Qt5::Gui`
 - `Qt5::Network` — TCP socket for GPSD provider
-- POSIX system headers (serial): `fcntl.h`, `unistd.h`, `termios.h`,
-  `sys/ioctl.h`, `errno.h`
+- `Qt5::SerialPort` — cross-platform serial port access
+- `Qt5::Positioning` *(optional)* — system location provider via
+  `QGeoPositionInfoSource` (GeoClue2 on Linux, Core Location on macOS,
+  Windows Location API). The plugin builds and runs without it; the System
+  Location option is simply absent from the settings dialog.
 
 ## Menus
 
@@ -50,8 +55,15 @@ None registered via `getToolbarEntries()`. The status widget provides:
 
 ## Usage Notes
 
-- No external GPS library required — serial GPS uses POSIX APIs directly.
-- GPSD provider connects to a gpsd daemon over TCP and parses JSON TPV messages.
-- Serial provider parses NMEA sentences (GPGGA, GPRMC, GPGSA).
-- Automatic failover: switches from main to fallback provider on disconnect/error.
+- Serial GPS uses Qt's `QSerialPort` (cross-platform). Default port:
+  `/dev/ttyUSB0` on Linux/macOS, `COM1` on Windows.
+- GPSD provider connects to a gpsd daemon over TCP and parses JSON TPV
+  messages.
+- System Location provider wraps `QGeoPositionInfoSource` and uses the
+  operating system's native location services. Requires `Qt5::Positioning`
+  at build time. No configuration needed — it auto-detects the platform's
+  location backend.
+- All NMEA providers parse GPGGA, GPRMC, and GPGSA sentences.
+- Automatic failover: switches from main to fallback provider on
+  disconnect or error.
 - Broadcasts location at a configurable interval.
