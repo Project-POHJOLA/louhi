@@ -41,7 +41,7 @@ graph TB
 
     subgraph "External"
         NATS[NATS Server]
-        TAKS[TAK Server(s)]
+        TAKS[TAK Servers]
         GPS[GPS / GPSD / Manual]
     end
 
@@ -202,7 +202,7 @@ sequenceDiagram
     participant LP as Location Plugin
     participant PM as PluginManager
     participant TP as TAK Plugin
-    participant TAKS as TAK Server(s)
+    participant TAKS as TAK Servers
 
     GPS->>LP: locationUpdated(LocationData)
     LP->>LP: broadcastLocation()
@@ -258,7 +258,7 @@ graph TB
     subgraph "External World"
         GPS_HW[Serial GPS / GPSD / Manual]
         NATS_SRV[NATS Server]
-        TAK_SRV[TAK Server(s)]
+        TAK_SRV[TAK Servers]
     end
 
     subgraph "LOUHI Plugins"
