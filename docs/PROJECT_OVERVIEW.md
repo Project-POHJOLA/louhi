@@ -63,9 +63,6 @@ graph TB
     NP <--> NATS
     TP <--> TAKS
     LP --> GPS
-    TP -. "location.position" .-> LP
-    TP -. "tak.<server>" .-> MVP
-    LP -. "location.position" .-> TP
 ```
 
 ## Plugin System
@@ -261,6 +258,8 @@ graph TB
         TAK_SRV[TAK Servers]
     end
 
+    PM[PluginManager<br/>broadcastMessage]
+
     subgraph "LOUHI Plugins"
         LP[Location Plugin]
         NP[NATS Plugin]
@@ -268,24 +267,27 @@ graph TB
         MVP[MessageViewer]
     end
 
-    GPS_HW -->|NMEA / JSON / static| LP
-    LP -->|"location.position"| NP
-    LP -->|"location.position"| TP
-    NP <--> NATS_SRV
-    TP -->|"tak.<server>"| NP
-    TP <-->|CoT XML / TCP-TLS| TAK_SRV
-    NP -->|"location.position"| TP
-    NP -->|"tak.<server>"| MVP
-    NP -->|"location.position"| MVP
+    GPS_HW -->|NMEA / JSON| LP
 
-    subgraph "PluginManager Message Bus"
-        NP -. "all subscribed topics" .-> TP
-        NP -. "all subscribed topics" .-> LP
-        NP -. "all subscribed topics" .-> MVP
-        TP -. "tak.<server>" .-> MVP
-        LP -. "location.position" .-> TP
-    end
+    LP -->|"location.position"| PM
+    PM -->|"deliver to subscribers"| TP
+    PM -->|"deliver to subscribers"| NP
+    PM -->|"deliver to subscribers"| MVP
+
+    NP -->|publish to external| NATS_SRV
+    NATS_SRV -->|incoming messages| NP
+    NP -->|"incoming from NATS"| PM
+
+    TP -->|"tak.<server>"| PM
+    TP <-->|CoT XML / TCP-TLS| TAK_SRV
+
+    PM -->|"deliver to subscribers"| TP
+    PM -->|"deliver to subscribers"| MVP
 ```
+
+> **Note:** The PluginManager's `broadcastMessage()` skips the sender plugin
+> via pointer comparison (`if (loaded.plugin == sender) continue;`).
+> A plugin never receives its own published messages.
 
 ## Configuration
 
@@ -298,8 +300,11 @@ graph TB
 ```json
 {
   "app": {
-    "window": { "width": 1024, "height": 768, "x": 0, "y": 0 }
+    "window": { "width": 1024, "height": 768, "x": 0, "y": 0 },
+    "dockState": "<base64-encoded QMainWindow::saveState()>",
+    "language": "en"
   },
+  "shared": {},
   "plugins": {
     "nats_communication": { "serverUrl": "localhost", "port": 4222, "autoConnect": false },
     "tak_communication": { "servers": [ { "id": "...", "name": "...", "address": "...", "port": 8089, "callsign": "...", "color": "...", "role": "...", "cotType": "a-f-G-U", "autoConnect": false, "debugLogging": false } ] },
@@ -313,8 +318,27 @@ graph TB
 
 ### Auto-Save/Restore
 
-- **Startup**: `ConfigManager.loadConfig()` → `PluginManager.loadAllPlugins()` calls `plugin->setConfig()` for each plugin
-- **Exit**: `MainWindow` destructor iterates enabled plugins, calls `plugin->getConfig()`, saves via `ConfigManager.saveConfig()`
+#### On Startup
+
+1. `ConfigManager.loadConfig()` reads `~/.config/Louhi/config.json`
+2. `PluginManager.loadAllPlugins()` calls `plugin->setConfig()` for each plugin
+3. `main.cpp` calls `MainWindow::restoreDockState()` after all docks are created
+
+#### On Exit
+
+1. `MainWindow` destructor saves window geometry (`x`, `y`, `width`, `height`)
+2. Dock layout is serialized via `QMainWindow::saveState()`, base64-encoded, and stored as `app.dockState`
+3. Each enabled plugin's config is saved via `plugin->getConfig()` under its plugin ID
+4. `ConfigManager.saveConfig()` writes everything to disk
+
+#### Dock State Persistence
+
+- `QMainWindow::saveState()` captures positions, sizes, tabification, floating
+  state, and visibility of all `QDockWidget` instances.
+- Docks are identified by their `objectName`, set to the plugin's `info.name`.
+- On startup, `restoreDockState()` applies the saved state after all plugin
+  docks have been created. If no state is saved, a fallback resizes the map
+  dock to 500 px width.
 
 ## UI Structure
 
