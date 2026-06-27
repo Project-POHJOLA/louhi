@@ -40,6 +40,8 @@ public:
     bool load() override;
     bool initialize() override;
     bool start() override;
+
+    void publish(const QString& topic, const QString& payload) override;
     bool stop() override;
     bool unload() override;
 
@@ -48,7 +50,6 @@ public:
 
     QJsonObject getConfig() const override;
     void setConfig(const QJsonObject& config) override;
-
     void setSubscribedTopics(const QStringList& topics) override;
 
 private slots:
@@ -69,11 +70,11 @@ private:
     QWidget* m_statusWidget;
     QVBoxLayout* m_mainLayout;
     QListWidget* m_serverStatusList;
-
     QList<NatsServerConfig> m_serverConfigs;
     QMap<QString, NatsClient*> m_clients;
-
+    // class NatsClient; forward-declared above
     QStringList m_subscribedTopics;
+    bool m_emconActive = false;
 };
 
 #endif

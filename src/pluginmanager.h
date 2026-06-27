@@ -48,19 +48,23 @@ public:
     QVector<ToolbarEntry> collectToolbarEntries() const;
     void setupMenu(QMenuBar* menuBar);
     void broadcastMessage(const QString& topic, const QString& payload, PluginInterface* sender = nullptr);
-
     void emitMessageToPlugins(const QString& topic, const QString& payload);
+
+    void setEmcon(bool active);
+    bool isEmcon() const { return m_emconActive; }
 
 signals:
     void pluginConnectionStatusChanged(const QString& pluginId, const QString& status);
     void pluginMessageReceived(const QString& pluginId, const QString& topic, const QString& payload);
     void pluginConfigChanged(const QString& pluginId);
+    void emconChanged(bool active);
 
 private:
     QVector<LoadedPlugin> m_plugins;
     QMap<QString, QVector<PluginInterface*>> m_topicSubscribers;
     ConfigManager* m_configManager;
     QString m_pluginDir;
+    bool m_emconActive = false;
 };
 
 #endif

@@ -21,10 +21,13 @@ public:
     QList<NatsServerConfig> serverConfigs() const;
     void setServerConfigs(const QList<NatsServerConfig>& configs);
 
-private slots:
-    void onServerSelected();
+    bool emconEnabled() const;
+    void setEmconEnabled(bool active);
     void addServer();
     void removeServer();
+
+private slots:
+    void onServerSelected();
 
 private:
     void loadCurrentServerToForm();
@@ -42,6 +45,7 @@ private:
     QLineEdit* m_urlEdit;
     QSpinBox* m_portSpin;
     QCheckBox* m_autoConnectCheck;
+    QCheckBox* m_emconCheck;
 };
 
 #endif

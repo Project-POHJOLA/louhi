@@ -28,6 +28,7 @@ struct PluginInfo {
     QStringList capabilities;
     QStringList subscribeTopics;
     QStringList publishTopics;
+    bool publishToBackend = true;
 };
 
 struct MenuEntry {
@@ -78,15 +79,19 @@ public slots:
         Q_UNUSED(payload);
     }
 
+    virtual void publish(const QString& topic, const QString& payload) {
+        Q_UNUSED(topic);
+        Q_UNUSED(payload);
+    }
+
 signals:
     void messageReceived(const QString& topic, const QString& payload);
     void statusChanged(const QString& status);
     void showWidgetRequested();
     void connectionStatusChanged(const QString& connectionName, const QString& status);
     void configChanged();
+    void emconStateChanged(bool active);
 };
-
 #define PluginInterface_iid "com.louhi.plugininterface/1.0"
 Q_DECLARE_INTERFACE(PluginInterface, PluginInterface_iid)
-
 #endif

@@ -62,7 +62,15 @@ NatsSettingsDialog::NatsSettingsDialog(QWidget* parent)
     configLayout->addStretch();
 
     topLayout->addWidget(configGroup, 2);
+
+    // EMCON section - below the server config area
+    QGroupBox* emconGroup = new QGroupBox(tr("Emission Control"), this);
+    QHBoxLayout* emconLayout = new QHBoxLayout(emconGroup);
+    m_emconCheck = new QCheckBox(tr("Emission Control (EMCON) — stop all outgoing transmissions, keep receiving"), emconGroup);
+    emconLayout->addWidget(m_emconCheck);
+
     mainLayout->addLayout(topLayout);
+    mainLayout->addWidget(emconGroup);
 
     connect(m_serverList, &QListWidget::currentRowChanged, this, &NatsSettingsDialog::onServerSelected);
     connect(m_addBtn, &QPushButton::clicked, this, &NatsSettingsDialog::addServer);
@@ -212,5 +220,17 @@ void NatsSettingsDialog::setServerConfigs(const QList<NatsServerConfig>& configs
         m_currentIndex = 0;
         loadCurrentServerToForm();
         m_removeBtn->setEnabled(true);
+    }
+}
+
+bool NatsSettingsDialog::emconEnabled() const
+{
+    return m_emconCheck ? m_emconCheck->isChecked() : false;
+}
+
+void NatsSettingsDialog::setEmconEnabled(bool active)
+{
+    if (m_emconCheck) {
+        m_emconCheck->setChecked(active);
     }
 }

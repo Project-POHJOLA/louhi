@@ -124,6 +124,14 @@ int main(int argc, char *argv[])
 
         QAction* pluginMgrAction = window.menuBar()->addAction(MainWindow::tr("Plugin Manager"));
         QObject::connect(pluginMgrAction, &QAction::triggered, &window, &MainWindow::showPluginManager);
+
+        // EMCON / Go Dark toggle on menu bar
+        QAction* emconAction = window.menuBar()->addAction(MainWindow::tr("Go Dark"));
+        emconAction->setCheckable(true);
+        emconAction->setChecked(false);
+        emconAction->setToolTip(MainWindow::tr("Emission Control — stop outgoing transmissions"));
+        QObject::connect(emconAction, &QAction::triggered, &window, &MainWindow::toggleEmcon);
+        window.setEmconToggleAction(emconAction);
     } else {
         qWarning() << "Plugin directory not found:" << pluginPath;
     }

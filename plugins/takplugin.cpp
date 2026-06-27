@@ -345,6 +345,13 @@ void TakPlugin::deliverMessage(const QString& topic, const QString& payload)
     }
 }
 
+void TakPlugin::publish(const QString& topic, const QString& payload)
+{
+    // TAK is transitional — forward to deliverMessage which already handles
+    // outbound location position updates as CoT messages.
+    deliverMessage(topic, payload);
+}
+
 void TakPlugin::sendCoTToAllServers(const QString& xml)
 {
     for (const TakServerConfig& config : m_serverConfigs) {

@@ -36,6 +36,14 @@ PluginManager::PluginManager(QObject* parent)
 {
 }
 
+void PluginManager::setEmcon(bool active)
+{
+    if (m_emconActive == active) return;
+    m_emconActive = active;
+    emit emconChanged(active);
+    qDebug() << "PluginManager: EMCON" << (active ? "activated" : "deactivated");
+}
+
 PluginManager::~PluginManager()
 {
     unloadAllPlugins();
@@ -339,6 +347,28 @@ void PluginManager::emitMessageToPlugins(const QString& topic, const QString& pa
     PluginInterface* sourcePlugin = qobject_cast<PluginInterface*>(sender());
     if (sourcePlugin) {
         emit pluginMessageReceived(sourcePlugin->getPluginInfo().id, topic, payload);
+
+        // Outbound: route to communication plugins if sender allows it
+        PluginInfo info = sourcePlugin->getPluginInfo();
+        bool shouldPublish = info.publishToBackend;
+
+        // Allow per-plugin config override
+        if (shouldPublish && m_configManager) {
+            QJsonObject pluginCfg = m_configManager->getPluginConfig(info.id);
+            if (pluginCfg.contains("publishToBackend")) {
+                shouldPublish = pluginCfg.value("publishToBackend").toBool();
+            }
+        }
+
+        if (shouldPublish && !m_emconActive) {
+            for (const LoadedPlugin& loaded : m_plugins) {
+                if (!loaded.plugin || !loaded.enabled) continue;
+                if (loaded.plugin == sourcePlugin) continue;
+                if (loaded.plugin->getPluginInfo().type == PluginType::Communication) {
+                    loaded.plugin->publish(topic, payload);
+                }
+            }
+        }
     }
     broadcastMessage(topic, payload, sourcePlugin);
 }

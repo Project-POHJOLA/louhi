@@ -8,8 +8,8 @@
 #include <QDockWidget>
 #include <QAction>
 #include <QActionGroup>
+#include <QLabel>
 #include "pluginmanager.h"
-#include "configmanager.h"
 #include "pluginmanagerdialog.h"
 #include "connectionledmanager.h"
 
@@ -36,6 +36,8 @@ public slots:
     void setupConnectionLeds();
     void setupLanguageMenu();
     void changeLanguage(const QString& langCode);
+    void toggleEmcon();
+    void setEmconToggleAction(QAction* action);
 
 private:
     void clearPluginToolbars();
@@ -46,6 +48,8 @@ private:
     QToolBar* m_mainToolBar;
     QList<QToolBar*> m_pluginToolbars;
     QByteArray m_pendingDockState;
+    QLabel* m_emconIndicator;
+    QAction* m_emconToggleAction;
 };
 
 #endif

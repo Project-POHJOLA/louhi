@@ -140,6 +140,25 @@ bool NatsPlugin::unload()
     return true;
 }
 
+void NatsPlugin::publish(const QString& topic, const QString& payload)
+{
+    if (m_emconActive) {
+        qDebug() << "NATS Plugin: EMCON active, dropping outbound message on" << topic;
+        return;
+    }
+
+    if (m_clients.isEmpty()) {
+        qDebug() << "NATS Plugin: No connected servers, cannot publish" << topic;
+        return;
+    }
+
+    for (auto it = m_clients.begin(); it != m_clients.end(); ++it) {
+        if (it.value()->isConnected()) {
+            it.value()->publish(topic, payload);
+        }
+    }
+}
+
 QWidget* NatsPlugin::getWidget()
 {
     return m_statusWidget;
@@ -149,6 +168,7 @@ void NatsPlugin::configure(QWidget* parent)
 {
     NatsSettingsDialog dialog(parent);
     dialog.setServerConfigs(m_serverConfigs);
+    dialog.setEmconEnabled(m_emconActive);
 
     if (dialog.exec() == QDialog::Accepted) {
         QList<NatsServerConfig> newConfigs = dialog.serverConfigs();
@@ -192,8 +212,14 @@ void NatsPlugin::configure(QWidget* parent)
         }
 
         m_serverConfigs = newConfigs;
+
+        bool newEmcon = dialog.emconEnabled();
+        if (newEmcon != m_emconActive) {
+            m_emconActive = newEmcon;
+            emit emconStateChanged(m_emconActive);
+        }
+
         updateStatusDisplay();
-        emit configChanged();
     }
 }
 
@@ -207,7 +233,7 @@ QJsonObject NatsPlugin::getConfig() const
     }
 
     config["servers"] = serversArray;
-    qDebug() << "NATS Plugin: Saving config with" << serversArray.size() << "servers";
+    config["emcon"] = m_emconActive;
     return config;
 }
 
@@ -216,12 +242,14 @@ void NatsPlugin::setConfig(const QJsonObject& config)
     m_serverConfigs.clear();
 
     QJsonArray serversArray = config.value("servers").toArray();
-    qDebug() << "NATS Plugin: Loading config with" << serversArray.size() << "servers";
     for (const QJsonValue& v : serversArray) {
         NatsServerConfig cfg = configFromJson(v.toObject());
         m_serverConfigs.append(cfg);
     }
+
+    m_emconActive = config.value("emcon").toBool(false);
 }
+
 
 void NatsPlugin::setSubscribedTopics(const QStringList& topics)
 {

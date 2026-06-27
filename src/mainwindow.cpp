@@ -11,12 +11,13 @@
 #include <QApplication>
 #include <QMenu>
 #include <QProcess>
-
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
     , m_configManager(new ConfigManager(this))
     , m_pluginManager(new PluginManager(this))
     , m_ledManager(new ConnectionLedManager(statusBar(), this))
+    , m_emconIndicator(nullptr)
+    , m_emconToggleAction(nullptr)
 {
     m_pluginManager->setConfigManager(m_configManager);
 
@@ -52,12 +53,42 @@ MainWindow::MainWindow(QWidget* parent)
 
     statusBar()->showMessage(tr("Ready"));
 
+    // EMCON indicator in status bar (hidden until set)
+    m_emconIndicator = new QLabel(tr(" EMCON "), this);
+    m_emconIndicator->setStyleSheet(
+        "QLabel { background-color: #cc0000; color: white; font-weight: bold; "
+        "padding: 1px 6px; border-radius: 3px; }");
+    m_emconIndicator->setVisible(false);
+    statusBar()->addPermanentWidget(m_emconIndicator);
+
+    connect(m_pluginManager, &PluginManager::emconChanged,
+            this, [this](bool active) {
+                m_emconIndicator->setVisible(active);
+                if (m_emconToggleAction) {
+                    m_emconToggleAction->setChecked(active);
+                }
+            });
+
     connect(m_pluginManager, &PluginManager::pluginConnectionStatusChanged,
             m_ledManager, &ConnectionLedManager::onPluginStatusChanged);
     connect(m_pluginManager, &PluginManager::pluginMessageReceived,
             m_ledManager, &ConnectionLedManager::onPluginMessageReceived);
     connect(m_pluginManager, &PluginManager::pluginConfigChanged,
             this, &MainWindow::onPluginConfigChanged);
+}
+
+void MainWindow::toggleEmcon()
+{
+    m_pluginManager->setEmcon(!m_pluginManager->isEmcon());
+}
+
+void MainWindow::setEmconToggleAction(QAction* action)
+{
+    m_emconToggleAction = action;
+    // Keep in sync with current state
+    if (action) {
+        action->setChecked(m_pluginManager->isEmcon());
+    }
 }
 
 MainWindow::~MainWindow()
@@ -241,8 +272,19 @@ void MainWindow::setupConnectionLeds()
                     QString serverLedId = ledId + "_" + serverName;
                     m_ledManager->addLed(serverLedId, "NATS", serverName);
                 }
+
+                // Wire EMCON toggle from NATS plugin settings to global EMCON gate
+                disconnect(plugin, &PluginInterface::emconStateChanged,
+                           m_pluginManager, &PluginManager::setEmcon);
+                connect(plugin, &PluginInterface::emconStateChanged,
+                        m_pluginManager, &PluginManager::setEmcon);
             } else {
                 m_ledManager->addLed(ledId, "NATS", tr("Default"));
+                // Also wire EMCON for the default/unnamed server case
+                disconnect(plugin, &PluginInterface::emconStateChanged,
+                           m_pluginManager, &PluginManager::setEmcon);
+                connect(plugin, &PluginInterface::emconStateChanged,
+                        m_pluginManager, &PluginManager::setEmcon);
             }
         } else if (info.id == "tak_communication") {
             QJsonObject config = plugin->getConfig();

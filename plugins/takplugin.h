@@ -40,6 +40,7 @@ public:
     void setConfig(const QJsonObject& config) override;
 
     void deliverMessage(const QString& topic, const QString& payload) override;
+    void publish(const QString& topic, const QString& payload) override;
 
 private slots:
     void onServerConnected();
