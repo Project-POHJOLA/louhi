@@ -381,7 +381,7 @@ MapEntity OsgEarthPlugin::parseCotMessage(const QString& topic, const QString& p
 
             // Only process atom (a-*) types and emergencies
             if (!cotType.startsWith("a-"))
-                return entity;
+                return MapEntity();
 
             // Skip ping/pong
             QString uidLower = entity.uid.toLower();

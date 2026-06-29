@@ -45,6 +45,25 @@ void IconsetResolver::loadAll(const QString& iconsetsDir, const QString& twoFive
     }
 }
 
+
+// Maps CoT affiliation letter → MIL-STD-2525B affiliation code
+static QString cotAffilToSidc(const QString& cotAffil)
+{
+    // CoT: f=Friendly, h=Hostile, s=Suspect, u=Unknown, n=Neutral,
+    //      p=Pending, a=Assumed Friend, o=Other
+    // 2525B: F=Friend, H=Hostile, U=Unknown, N=Neutral, S=Suspect
+    static const QHash<QString, QString> map = {
+        { QStringLiteral("f"), QStringLiteral("f") },
+        { QStringLiteral("h"), QStringLiteral("h") },
+        { QStringLiteral("s"), QStringLiteral("u") },  // suspect → unknown (AIS civil traffic)
+        { QStringLiteral("u"), QStringLiteral("u") },
+        { QStringLiteral("n"), QStringLiteral("n") },
+        { QStringLiteral("p"), QStringLiteral("f") },  // pending → friend
+        { QStringLiteral("a"), QStringLiteral("f") },  // assumed friend → friend
+        { QStringLiteral("o"), QStringLiteral("u") },  // other → unknown
+    };
+    return map.value(cotAffil.toLower(), QStringLiteral("u"));
+}
 void IconsetResolver::loadIconset(const QString& xmlPath)
 {
     QFile file(xmlPath);
@@ -105,9 +124,6 @@ void IconsetResolver::loadIconset(const QString& xmlPath)
 
 QString IconsetResolver::cotToSidc(const QString& cotType) const
 {
-    // Implements the same logic as tak-webview-cesium's cotToSidc()
-    // CoT type format: a-f-G-U-C
-    // Returns 15-char SIDC: S<affil><dim>P<func1><func2><func3><func4><func5><func6>---
     if (cotType.isEmpty())
         return QStringLiteral("sugp-----------");
 
@@ -118,16 +134,9 @@ QString IconsetResolver::cotToSidc(const QString& cotType) const
     // Position 1: Scheme (always S = Warfighting)
     QString sidc = QLatin1String("S");
 
-    // Position 2: Affiliation from parts[1]
-    QString affil = parts[1].toUpper();
-    if (affil == QLatin1String("P")) {
-        affil = QLatin1String("F"); // P (Pending) maps to F in sidc
-    }
-    if (affil.length() > 0) {
-        sidc += affil.at(0);
-    } else {
-        sidc += QLatin1Char('U');
-    }
+    // Position 2: Affiliation from parts[1] — map CoT→2525B
+    QString affil = cotAffilToSidc(parts[1]);
+    sidc += affil.at(0);
 
     // Position 3: Battle Dimension from parts[2]
     QString dim = parts[2].toUpper();
@@ -135,9 +144,8 @@ QString IconsetResolver::cotToSidc(const QString& cotType) const
         QLatin1String("P"), QLatin1String("A"), QLatin1String("G"),
         QLatin1String("S"), QLatin1String("U"), QLatin1String("F")
     };
-    if (!validDims.contains(dim)) {
+    if (!validDims.contains(dim))
         dim = QLatin1String("G"); // default Ground
-    }
     sidc += dim.at(0);
 
     // Position 4: Status (always P = Present)
@@ -147,22 +155,22 @@ QString IconsetResolver::cotToSidc(const QString& cotType) const
     for (int i = 3; i <= 8; i++) {
         if (i < parts.size()) {
             const QString& part = parts[i];
-            if (!part.isEmpty()) {
+            if (!part.isEmpty())
                 sidc += part.at(0).toUpper();
-            } else {
+            else
                 sidc += QLatin1Char('-');
-            }
         } else {
             sidc += QLatin1Char('-');
         }
     }
 
-    // Pad to exactly 15 characters with '-'
+    // Pad to 15 characters
     while (sidc.length() < 15)
         sidc += QLatin1Char('-');
 
     return sidc.left(15).toLower();
 }
+
 
 QString IconsetResolver::cleanSidc(const QString& sidc) const
 {
@@ -367,9 +375,9 @@ QString IconsetResolver::affiliationFromType(const QString& cotType)
     // Second token = affiliation: f=friendly, h=hostile, u=unknown, n=neutral
     QStringList parts = cotType.split('-');
     if (parts.size() >= 2) {
-        return parts[1];
+        return cotAffilToSidc(parts[1]);
     }
-    return "u"; // default unknown
+    return QStringLiteral("U"); // default unknown
 }
 
 QString IconsetResolver::typePrefix(const QString& cotType)
