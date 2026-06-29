@@ -95,18 +95,20 @@ void OsgEarthPlugin::handleToolbarAction(const QString& actionId)
 // Search order for the icons base directory (parent of map/iconsets/ and map/2525/)
 static QString findIconsBaseDir()
 {
-    const QStringList candidates = {
+    QStringList candidates = {
         // Build-tree layout: <appDir>/../assets/icons/
         QApplication::applicationDirPath() + "/../assets/icons",
         // Portable bundle layout: <appDir>/../icons/
         QApplication::applicationDirPath() + "/../icons",
-        // FHS system install
-        QStringLiteral("/usr/share/louhi/icons"),
-        // Local install
-        QStringLiteral("/usr/local/share/louhi/icons"),
-        // User data directory
-        QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation) + "/icons",
     };
+
+    // Platform-appropriate shared data locations via Qt
+    const QStringList dataDirs = QStandardPaths::standardLocations(QStandardPaths::GenericDataLocation);
+    for (const QString& dir : dataDirs) {
+        candidates.append(dir + "/louhi/icons");
+    }
+    // Per-user writable override (last so user drops take priority)
+    candidates.append(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation) + "/icons");
 
     for (const QString& dir : candidates) {
         QDir d(dir);
