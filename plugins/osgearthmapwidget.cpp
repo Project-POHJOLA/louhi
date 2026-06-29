@@ -83,6 +83,8 @@ static osg::Image* qImageToOsgImage(const QImage& qimg, int size = 32)
 {
     QImage scaled = qimg.scaled(size, size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
     scaled = scaled.convertToFormat(QImage::Format_RGBA8888);
+    // Flip vertically: QImage is top-to-bottom, OpenGL textures are bottom-to-top
+    scaled = scaled.mirrored(false, true);
     unsigned char* data = new unsigned char[scaled.sizeInBytes()];
     memcpy(data, scaled.bits(), scaled.sizeInBytes());
     osg::Image* osgImg = new osg::Image();
@@ -95,8 +97,6 @@ static osg::Image* qImageToOsgImage(const QImage& qimg, int size = 32)
 //   A=Air    → ABSOLUTE (use reported HAE)
 //   S=Sea    → RELATIVE with 0m
 //   U=Subsurface → ABSOLUTE
-//   F=SOF    → RELATIVE with 2m offset
-//   default  → RELATIVE with 2m
 static osgEarth::GeoPoint entityPosition(const MapEntity& entity)
 {
     double alt = 2.0;
@@ -105,17 +105,19 @@ static osgEarth::GeoPoint entityPosition(const MapEntity& entity)
     QStringList parts = entity.cotType.split('-');
     if (parts.size() >= 3) {
         QString dim = parts[2].toUpper();
-        if (dim == QLatin1String("A")) {
+        // Air and Subsurface use absolute altitude, but clamp to RELATIVE if hae is near zero
+        if (dim == QLatin1String("A") && qAbs(entity.alt) > 1.0) {
             mode = osgEarth::ALTMODE_ABSOLUTE;
             alt = entity.alt;
-        } else if (dim == QLatin1String("U")) {
+        } else if (dim == QLatin1String("U") && qAbs(entity.alt) > 1.0) {
             mode = osgEarth::ALTMODE_ABSOLUTE;
             alt = entity.alt;
         } else if (dim == QLatin1String("S")) {
             alt = 0.0;
         }
+        // G, F, and anything with hae≈0 → RELATIVE at 2m
     }
-    // G, F, others: RELATIVE at 2m (default)
+    // Default: RELATIVE at 2m
 
     return osgEarth::GeoPoint(
         osgEarth::SpatialReference::get("wgs84"),
@@ -141,14 +143,12 @@ void OsgEarthMapWidget::addOrUpdateEntity(const MapEntity& entity)
         if (!entity.icon.isNull()) {
             node->setIconImage(qImageToOsgImage(entity.icon));
         }
-        node->setText(entity.callsign.toStdString());
         return;
     }
 
-    // Create new PlaceNode
+    // Create new PlaceNode (no text label)
     osgEarth::PlaceNode* node = new osgEarth::PlaceNode();
     node->setPosition(pos);
-    node->setText(entity.callsign.toStdString());
 
     if (!entity.icon.isNull()) {
         node->setIconImage(qImageToOsgImage(entity.icon));
@@ -156,16 +156,6 @@ void OsgEarthMapWidget::addOrUpdateEntity(const MapEntity& entity)
 
     m_annotationLayer->addChild(node);
     m_entities.insert(entity.uid, node);
-}
-
-void OsgEarthMapWidget::removeEntity(const QString& uid)
-{
-    m_staleTimes.remove(uid);
-    auto it = m_entities.find(uid);
-    if (it != m_entities.end()) {
-        m_annotationLayer->getGroup()->removeChild(it.value().get());
-        m_entities.erase(it);
-    }
 }
 
 void OsgEarthMapWidget::clearEntities()
