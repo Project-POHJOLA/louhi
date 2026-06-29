@@ -27,7 +27,7 @@ add_library(natsplugin SHARED
     natsclient.h
 )
 
-target_link_libraries(natsplugin plugininterface Qt5::Widgets Qt5::Core Qt5::Gui nats_static)
+target_link_libraries(natsplugin plugininterface Qt6::Widgets Qt6::Core Qt6::Gui nats_static)
 
 set_plugin_properties(natsplugin)
 
@@ -36,7 +36,7 @@ add_library(messageviewerplugin SHARED
     messageviewerplugin.cpp
 )
 
-target_link_libraries(messageviewerplugin plugininterface Qt5::Widgets Qt5::Core Qt5::Gui)
+target_link_libraries(messageviewerplugin plugininterface Qt6::Widgets Qt6::Core Qt6::Gui)
 
 set_plugin_properties(messageviewerplugin)
 
@@ -51,7 +51,7 @@ add_library(takplugin SHARED
     cotmessage.cpp
 )
 
-target_link_libraries(takplugin plugininterface Qt5::Widgets Qt5::Core Qt5::Gui Qt5::Network Qt5::Xml OpenSSL::Crypto)
+target_link_libraries(takplugin plugininterface Qt6::Widgets Qt6::Core Qt6::Gui Qt6::Network OpenSSL::Crypto)
 
 set_plugin_properties(takplugin)
 
@@ -64,10 +64,10 @@ add_library(locationplugin SHARED
     gpsprovider.cpp
 )
 
-target_link_libraries(locationplugin plugininterface Qt5::Widgets Qt5::Core Qt5::Gui Qt5::Network Qt5::SerialPort)
+target_link_libraries(locationplugin plugininterface Qt6::Widgets Qt6::Core Qt6::Gui Qt6::Network Qt6::SerialPort)
 
-if(Qt5Positioning_FOUND)
-    target_link_libraries(locationplugin Qt5::Positioning)
+if(Qt6Positioning_FOUND)
+    target_link_libraries(locationplugin Qt6::Positioning)
     target_compile_definitions(locationplugin PRIVATE QT_POSITIONING_LIB)
 endif()
 
@@ -80,7 +80,7 @@ add_library(mapplugin SHARED
     mapwidget.cpp
 )
 
-target_link_libraries(mapplugin plugininterface Qt5::Widgets Qt5::Core Qt5::Gui Qt5::Network)
+target_link_libraries(mapplugin plugininterface Qt6::Widgets Qt6::Core Qt6::Gui Qt6::Network)
 
 set_plugin_properties(mapplugin)
 
@@ -99,7 +99,7 @@ if(osgEarth_FOUND)
 
     target_link_libraries(osgearthplugin
         plugininterface
-        Qt5::Widgets Qt5::Core Qt5::Gui Qt5::Network
+        Qt6::Widgets Qt6::Core Qt6::Gui Qt6::Network
         ${OSGEARTH_LIBRARIES}
     )
 

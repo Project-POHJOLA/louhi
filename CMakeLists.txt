@@ -12,8 +12,8 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(Qt5 REQUIRED COMPONENTS Widgets Core Gui Network Xml SerialPort)
-find_package(Qt5Positioning QUIET)
+find_package(Qt6 REQUIRED COMPONENTS Widgets Core Gui Network SerialPort)
+find_package(Qt6Positioning QUIET)
 find_package(OpenSSL REQUIRED)
 
 # ---------------------------------------------------------------------------
@@ -61,7 +61,7 @@ add_library(plugininterface SHARED
     plugins/mapsourcesdialog.cpp
 )
 
-target_link_libraries(plugininterface Qt5::Core Qt5::Widgets OpenSSL::Crypto)
+target_link_libraries(plugininterface Qt6::Core Qt6::Widgets OpenSSL::Crypto)
 
 set_target_properties(plugininterface PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
@@ -93,7 +93,7 @@ if(LRELEASE)
     endforeach()
     add_custom_target(translations ALL DEPENDS ${QM_FILES})
 else()
-    message(WARNING "lrelease not found - translations will not be compiled. Install qttools5-dev-tools.")
+    message(WARNING "lrelease not found - translations will not be compiled. Install qt6-l10n-tools.")
     set(QM_FILES)
 endif()
 
@@ -111,7 +111,7 @@ add_executable(louhi
     resources.qrc
 )
 
-target_link_libraries(louhi plugininterface Qt5::Widgets Qt5::Gui)
+target_link_libraries(louhi plugininterface Qt6::Widgets Qt6::Gui)
 
 # Set RPATH for portable deployment: look for libs in ../lib/ relative to binary
 if(APPLE)

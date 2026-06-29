@@ -16,7 +16,7 @@ if(APPLE)
     # ------------------------------------------------------------------
     find_program(MACDEPLOYQT macdeployqt)
     if(NOT MACDEPLOYQT)
-        message(FATAL_ERROR "macdeployqt not found. Install Qt5 development tools.")
+        message(FATAL_ERROR "macdeployqt not found. Install Qt6 development tools.")
     endif()
 
     add_custom_target(portable-deploy
@@ -33,7 +33,7 @@ elseif(WIN32)
     # ------------------------------------------------------------------
     find_program(WINDEPLOYQT windeployqt)
     if(NOT WINDEPLOYQT)
-        message(FATAL_ERROR "windeployqt not found. Install Qt5 development tools.")
+        message(FATAL_ERROR "windeployqt not found. Install Qt6 development tools.")
     endif()
 
     set(DEPLOY_DIR "${CMAKE_BINARY_DIR}/Louhi")
@@ -53,30 +53,29 @@ else()
     # Linux: use ldd + custom bash script + patchelf/chrpath
     # ------------------------------------------------------------------
 
-    # Determine Qt5 plugin directory using qmake
-    find_program(QT_QMAKE_EXECUTABLE qmake)
+    # Determine Qt6 plugin directory using qmake6
+    find_program(QT_QMAKE_EXECUTABLE qmake6)
     if(QT_QMAKE_EXECUTABLE)
         execute_process(
             COMMAND ${QT_QMAKE_EXECUTABLE} -query QT_INSTALL_PLUGINS
-            OUTPUT_VARIABLE QT5_PLUGIN_DIR
+            OUTPUT_VARIABLE QT6_PLUGIN_DIR
             OUTPUT_STRIP_TRAILING_WHITESPACE
         )
     endif()
-    if(NOT EXISTS "${QT5_PLUGIN_DIR}")
+    if(NOT EXISTS "${QT6_PLUGIN_DIR}")
         # Fallback: common locations
         foreach(_dir
-            "/usr/lib/x86_64-linux-gnu/qt5/plugins"
-            "/usr/lib/qt5/plugins"
-            "/usr/local/opt/qt/lib/plugins"
+            "/usr/lib/x86_64-linux-gnu/qt6/plugins"
+            "/usr/lib/qt6/plugins"
         )
             if(EXISTS "${_dir}")
-                set(QT5_PLUGIN_DIR "${_dir}")
+                set(QT6_PLUGIN_DIR "${_dir}")
                 break()
             endif()
         endforeach()
     endif()
 
-    message(STATUS "PortableDeploy: Qt5 plugin dir     = ${QT5_PLUGIN_DIR}")
+    message(STATUS "PortableDeploy: Qt6 plugin dir     = ${QT6_PLUGIN_DIR}")
 
     set(DEPLOY_DIR "${CMAKE_BINARY_DIR}/Louhi.app")
     set(DEPLOY_BIN_DIR "${DEPLOY_DIR}/bin")

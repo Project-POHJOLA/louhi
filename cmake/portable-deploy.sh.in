@@ -12,7 +12,7 @@ DEPLOY_DIR="@DEPLOY_DIR@"
 DEPLOY_BIN_DIR="@DEPLOY_BIN_DIR@"
 DEPLOY_LIB_DIR="@DEPLOY_LIB_DIR@"
 DEPLOY_PLUGIN_DIR="@DEPLOY_PLUGIN_DIR@"
-QT5_PLUGIN_DIR="@QT5_PLUGIN_DIR@"
+QT6_PLUGIN_DIR="@QT6_PLUGIN_DIR@"
 CMAKE_SOURCE_DIR="@CMAKE_SOURCE_DIR@"
 CMAKE_BINARY_DIR="@CMAKE_BINARY_DIR@"
 
@@ -116,8 +116,8 @@ done
 # Step 3: Copy Qt platform plugins (and their deps)
 # ------------------------------------------------------------------
 echo ">> Copying Qt platform plugins..."
-if [ -d "${QT5_PLUGIN_DIR}" ]; then
-    for plugin in "${QT5_PLUGIN_DIR}"/platforms/*.so; do
+if [ -d "${QT6_PLUGIN_DIR}" ]; then
+    for plugin in "${QT6_PLUGIN_DIR}"/platforms/*.so; do
         if [ -f "${plugin}" ]; then
             mkdir -p "${DEPLOY_PLUGIN_DIR}/platforms"
             cp -aL "${plugin}" "${DEPLOY_PLUGIN_DIR}/platforms/"
@@ -125,7 +125,7 @@ if [ -d "${QT5_PLUGIN_DIR}" ]; then
             collect_deps "${plugin}"
         fi
     done
-    for plugin in "${QT5_PLUGIN_DIR}"/imageformats/*.so; do
+    for plugin in "${QT6_PLUGIN_DIR}"/imageformats/*.so; do
         if [ -f "${plugin}" ]; then
             mkdir -p "${DEPLOY_PLUGIN_DIR}/imageformats"
             cp -aL "${plugin}" "${DEPLOY_PLUGIN_DIR}/imageformats/"
@@ -134,7 +134,7 @@ if [ -d "${QT5_PLUGIN_DIR}" ]; then
         fi
     done
 else
-    echo "   WARNING: Qt5 plugin directory not found at ${QT5_PLUGIN_DIR}"
+    echo "   WARNING: Qt6 plugin directory not found at ${QT6_PLUGIN_DIR}"
 fi
 
 # ------------------------------------------------------------------
