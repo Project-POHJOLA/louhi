@@ -1,6 +1,6 @@
 # NATS Subject & Auth Design for LOUHI
 
-**Status:** Draft proposal  
+**Status:** Draft proposal
 **Date:** 2026-06-29
 
 ---
@@ -229,7 +229,100 @@ No account change needed — the squad account already allows `msg.>` pub/sub; t
 
 ---
 
-## 5. JetStream Streams
+## 5. Direct Messages & Group Chats
+
+NATS has **no variable substitution** in permission subjects — no `${user}` or `$VAR` in `pub.allow`/`sub.allow`. If Alice's JWT allows `dm.>`, she could publish `dm.bob.>` and impersonate Bob's inbox. A different approach is needed.
+
+### 5.1 Architecture: Router/resolver pattern
+
+A lightweight NATS microservice (the **router**) acts as the delivery agent for all direct messages and ad-hoc group chats. Users never publish directly into another user's inbox.
+
+```mermaid
+flowchart LR
+    subgraph Publisher
+        A["Alice"]
+    end
+    subgraph "Subject: dm.send"
+        P1["dm.send.bob.msg_id_1"]
+    end
+    subgraph Router
+        R["dm-router<br/>sub: dm.send.>\nsub: group.send.>"]
+    end
+    subgraph "Subject: dm.inbox"
+        P2["dm.inbox.bob.msg_id_1"]
+    end
+    subgraph Subscriber
+        B["Bob<br/>sub: dm.inbox.bob.>"]
+    end
+    A --> P1
+    P1 -->|validate sender| R
+    R -->|republish| P2
+    P2 --> B
+```
+
+| Subject | Sender pub | Recipient sub | Description |
+|---------|-----------|---------------|-------------|
+| `dm.send.<to_user_id>.<msg_id>` | Any user | — | Outbound DM |
+| `dm.inbox.<user_id>.>` | Router only | Individual user | Inbound DM |
+| `group.send.<group_id>.<msg_id>` | Group member | — | Outbound group message |
+| `group.inbox.<group_id>.>` | Router only | Group members | Inbound group message |
+
+### 5.2 Router responsibilities
+
+1. **Subscribe** to `dm.send.>` and `group.send.>`
+2. **Authenticate** the sender by verifying their NATS client certificate / JWT issuer — the sender's identity comes from the TLS client cert or the `iss` claim in the JWT, **not** from the subject tokens. This prevents impersonation.
+3. **Authorize** — check the sender is a member of the target group (for groups) or that the recipient exists (for DMs).
+4. **Re-publish** — send to `dm.inbox.<recipient_id>.<msg_id>` or `group.inbox.<group_id>.<msg_id>`, optionally with JetStream persistence.
+5. **(Optional) Ack tracking** — for DMs that need delivery confirmation.
+
+### 5.3 JWT permissions for DM/group
+
+**Any user:**
+```json
+{
+  "pub": { "allow": ["dm.send.>", "group.send.>"] },
+  "sub": { "allow": ["dm.inbox.<USER_ID>.>", "group.inbox.>"] }
+}
+```
+
+The user JWT bakes in their `<USER_ID>` on the `sub.allow` — no variable substitution needed, just a literal per-user subject.
+
+**Router service:**
+```json
+{
+  "pub": { "allow": ["dm.inbox.>", "group.inbox.>"] },
+  "sub": { "allow": ["dm.send.>", "group.send.>"] }
+}
+```
+
+The router has broad pub/sub — trust is via separate authentication (client cert / cluster auth).
+
+### 5.4 Group chat membership
+
+Group definitions live outside NATS — in the LOUHI app config, a YAML file, or an IDMS:
+
+```yaml
+groups:
+  casevac-coordinators:
+    members: [alice, bob]
+  company-1-officers:
+    members: [co-1-cdr, plt-1-lead, plt-2-lead]
+  op-red-rover:
+    members: [squ-1-1, squ-1-2, fsg-3]
+    ttl: 24h
+```
+
+The router consults this on every `group.send.*` publish. Temporary groups (like `op-red-rover`) have a TTL and auto-expire.
+
+### 5.5 DM/group in the subject hierarchy
+
+Unlike `msg.<org_path>.*` which is access-controlled by NATS ACLs, DM and group traffic is access-controlled **at the application layer** by the router. The NATS layer ensures only the intended recipient(s) have `sub` access to `dm.inbox.<user_id>.>` — nobody else can subscribe.
+
+This also means DM traffic naturally crosses echelon boundaries: a squad member can DM the battalion commander directly, and the commander's JWT (with `sub: dm.inbox.bn-cdr.>`) receives it.
+
+---
+
+## 6. JetStream Streams
 
 Each message `type` maps to a stream or distinct subject prefix for retention:
 
@@ -246,11 +339,13 @@ Each message `type` maps to a stream or distinct subject prefix for retention:
 
 Stream names mirror the subject suffix: `msg_pos`, `msg_msg`, `alert_casevac`, etc. Consumers (per role/unit) use filtered subjects so they only drain their subtree.
 
+For DM/group traffic, JetStream can optionally persist inbox subjects with `LimitsPolicy` for offline delivery — a user who reconnects receives messages they missed.
+
 ---
 
-## 6. Edge Cases
+## 7. Edge Cases
 
-### 6.1 Cross-unit chatter (adjacent squads)
+### 7.1 Cross-unit chatter (adjacent squads)
 
 Not allowed by default — correct per need-to-know. If a mission requires it, a **tactical override** publishes on a separate short-lived subject:
 
@@ -260,24 +355,26 @@ tmp.mission-42.squ-1.squ-7
 
 A temporary ACL update at the account level enables `sub` on `tmp.mission-42.>` for the involved user JWTs. After action, the subscription is revoked.
 
-### 6.2 Medic forwarding a CASEVAC
+### 7.2 Medic forwarding a CASEVAC
 
 Medic publishes `alert.casevac.div-1.bde-3.bn-2.co-1.plt-3.squ-1.<id>`. The CASEVAC controller (subscribed to `alert.casevac.>`) receives it instantly — no routing logic needed. The controller's acknowledgment publishes to `alert.casevac.status.<id>` which the medic (and parent unit) can see.
 
-### 6.3 Higher echelon reaching down
+### 7.3 Higher echelon reaching down
 
 A battalion commander publishes `msg.div-1.bde-3.bn-2.>` which includes `*.>` — their message lands on subjects under their whole subtree. Every unit in the battalion sees it. The commander does not need to know the exact `org_path` of the target — `co-1.plt-2.squ-3` is encoded in the message metadata, not the routing.
 
 ---
 
-## 7. Summary
+## 8. Summary
 
 ```
 msg.<org_path>.<type>       ← routine traffic, ACLs by hierarchy depth
 alert.<domain>.<org_path>   ← cross-cutting / role-specific traffic
+dm/group.*                  ← application-layer routing via a router service
 ```
 
 - **Hierarchy = ACL.** No blacklists, no per-user exception lists.
 - **Accounts = role archetypes.** One-time signing; user JWTs stamp the `org_path`.
 - **Types = stream retention.** Tailor durability per message class.
 - **Alert tree = override.** Dedicated subjects for role-specific visibility without exposing routine traffic.
+- **Router = DM delivery.** NATS cannot do variable substitution in permissions; a lightweight router service handles addressing and authorization.
