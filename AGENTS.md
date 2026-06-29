@@ -328,3 +328,24 @@ Local cross-compilation (Linux→Windows MingW, Linux→macOS via `osxcross`) is
 - Default: 27, FEMA Icons: 1, Generic: 0, Google: 6, OSM: 0, WASP: 0
 
 **Result:** Build succeeds, smoke test passes, all 6 plugins load, aggregated subscriptions include `msg.>` and `alert.>`.
+
+### 2026-06-29 — Step 7: Rewrite icon resolver — 2525B primary, iconset fallback
+
+**What:** Changed icon resolution to use MIL-STD-2525B as the primary path, matching tak-webview-cesium reference code. Iconsets are now only used for explicit `<usericon iconsetpath>` CoT detail attributes.
+
+**Changes:**
+- `iconsetresolver.h/cpp` — Added `cotToSidc()` and `cleanSidc()` (C++ ports of JS reference), `resolve2525Icon()` with progressive SIDC fallback, 2525B file index (QSet of 3280 filenames)
+- `osgearthmapwidget.h` — Added `milsymId` field to `MapEntity`
+- `osgearthplugin.cpp` — Parse `__milsym`/`__milicon` from CoT detail; pass `milsymId` to resolver; load `assets/icons/map/2525/` directory
+
+**Resolution priority:**
+1. `<usericon iconsetpath>` → iconset lookup (only path that uses iconsets)
+2. `__milsym`/`__milicon` detail → `cleanSidc()` → 2525/ PNG
+3. CoT `type` → `cotToSidc()` → 2525/ PNG
+4. Progressive SIDC shortening (strip trailing function code → generic dimension → unknown ground)
+5. Iconset typeMap fallback (unchanged from before)
+6. Default affiliation icon from iconset
+
+**2525B directory:** `assets/icons/map/2525/` — 3280 pre-rendered PNGs named by 15-char lowercased 2525B SIDC (e.g. `sfgp-----------.png`).
+
+**Result:** Builds clean, 3280 2525B icons indexed.
