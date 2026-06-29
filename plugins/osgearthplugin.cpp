@@ -112,13 +112,16 @@ bool OsgEarthPlugin::initialize()
         });
 
 
-    // Load iconsets for tactical icon resolution
+    // Load iconsets and 2525B tactical icons
     QString iconsetsPath = QApplication::applicationDirPath() + "/../assets/icons/map/iconsets";
     if (!QDir(iconsetsPath).exists()) {
-        // Try relative to source tree during development
         iconsetsPath = QDir::currentPath() + "/assets/icons/map/iconsets";
     }
-    m_iconResolver.loadAll(iconsetsPath);
+    QString tftDir = QApplication::applicationDirPath() + "/../assets/icons/map/2525";
+    if (!QDir(tftDir).exists()) {
+        tftDir = QDir::currentPath() + "/assets/icons/map/2525";
+    }
+    m_iconResolver.loadAll(iconsetsPath, tftDir);
 
     connect(m_mapWidget, &OsgEarthMapWidget::sourceChanged, this,
         [this](const QString& sourceName) {
@@ -374,8 +377,14 @@ MapEntity OsgEarthPlugin::parseCotMessage(const QString& topic, const QString& p
                 if (xml.isStartElement() && xml.name() == QStringLiteral("usericon")) {
                     entity.iconsetPath = xml.attributes().value("iconsetpath").toString();
                 }
+                // Extract milsym/milicon 2525B symbol IDs
+                if (xml.isStartElement() && (xml.name() == QStringLiteral("__milsym") ||
+                    xml.name() == QStringLiteral("__milicon"))) {
+                    QString id = xml.attributes().value("id").toString();
+                    if (!id.isEmpty())
+                        entity.milsymId = id;
+                }
                 if (xml.isEndElement() && xml.name() == QStringLiteral("detail")) {
-                    break;
                 }
             }
 
@@ -385,10 +394,8 @@ MapEntity OsgEarthPlugin::parseCotMessage(const QString& topic, const QString& p
 
     if (xml.hasError()) {
         qDebug() << "OsgEarthPlugin: CoT parse error" << xml.errorString();
-        return MapEntity(); // return invalid
-    }
-
-    return entity;
+        return MapEntity();
+}
 }
 
 void OsgEarthPlugin::deliverMessage(const QString& topic, const QString& payload)
@@ -401,8 +408,11 @@ void OsgEarthPlugin::deliverMessage(const QString& topic, const QString& payload
     if (entity.uid.isEmpty())
         return;
 
-    // Resolve icon: priority: iconsetpath → type match → default domain
-    entity.icon = m_iconResolver.resolveIcon(entity.cotType, entity.iconsetPath);
+    // Resolve icon:
+    //   Primary: milsymId (explicit 2525B from CoT detail) -> 2525/ directory
+    //   Fallback: CoT type -> cotToSidc -> 2525/ directory
+    //   Only if usericon attribute: iconset resolver
+    entity.icon = m_iconResolver.resolveIcon(entity.cotType, entity.iconsetPath, entity.milsymId);
 
     // Add or update entity on the map
     m_mapWidget->addOrUpdateEntity(entity);

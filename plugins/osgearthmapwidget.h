@@ -26,6 +26,7 @@ struct MapEntity {
     QString callsign;
     QString cotType;
     QString iconsetPath;
+    QString milsymId;   // from __milsym/__milicon/milsym/milicon detail
     QImage icon;
     QDateTime staleTime;
 };
