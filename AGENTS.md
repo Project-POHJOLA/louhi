@@ -312,3 +312,19 @@ Local cross-compilation (Linux→Windows MingW, Linux→macOS via `osxcross`) is
 - `nats_static.a` — NATS C client (no Qt dependency)
 **Smoke test:** Binary starts, discovers all 6 plugins, loads and initializes them, CoT message parser works, TAK plugin auto-connects. No Qt5 libraries linked anywhere.
 **Next step:** User testing — run `./build/louhi` from the project root and verify functionality.
+
+### 2026-06-29 — Step 6: CoT entity rendering + icon resolution
+
+**What:** Added tactical entity rendering to the osgEarth map plugin.
+
+**Files changed:**
+- `plugins/osgearthplugin.h/cpp` — subscribe to `msg.>` and `alert.>` NATS topics; implement CoTXML parsing in `deliverMessage()` extracting uid, type, callsign, position, iconsetpath, stale time; resolve icon via IconsetResolver; call widget entity methods
+- `plugins/osgearthmapwidget.h/cpp` — add `MapEntity` struct, `addOrUpdateEntity()`/`removeEntity()`/`clearEntities()` methods; render entities as `osgEarth::PlaceNode` annotations with icon and callsign label; stale-check timer every 5s
+- `plugins/iconsetresolver.h/cpp` — new class: scans `assets/icons/map/iconsets/` for `iconset.xml` files, builds `type2525b`→icon map; icon resolution priority: explicit `iconsetpath` → exact type match → 3-token prefix → 2-token → domain default (friendly/hostile/neutral/unknown)
+- `plugins/CMakeLists.txt` — add iconsetresolver sources to osgearthplugin
+- `NATS_DESIGN.md` — add §3 Protocol Layer: CoTXML is standard wire format
+
+**Iconset counts (distinct type2525b codes):**
+- Default: 27, FEMA Icons: 1, Generic: 0, Google: 6, OSM: 0, WASP: 0
+
+**Result:** Build succeeds, smoke test passes, all 6 plugins load, aggregated subscriptions include `msg.>` and `alert.>`.
