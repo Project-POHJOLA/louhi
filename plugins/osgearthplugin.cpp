@@ -7,6 +7,7 @@
 #include <QApplication>
 #include <QDateTime>
 #include <QDir>
+#include <QStandardPaths>
 #include "tilecache.h"
 
 #include <QDebug>
@@ -91,6 +92,36 @@ void OsgEarthPlugin::handleToolbarAction(const QString& actionId)
     }
 }
 
+// Search order for the icons base directory (parent of map/iconsets/ and map/2525/)
+static QString findIconsBaseDir()
+{
+    const QStringList candidates = {
+        // Build-tree layout: <appDir>/../assets/icons/
+        QApplication::applicationDirPath() + "/../assets/icons",
+        // Portable bundle layout: <appDir>/../icons/
+        QApplication::applicationDirPath() + "/../icons",
+        // FHS system install
+        QStringLiteral("/usr/share/louhi/icons"),
+        // Local install
+        QStringLiteral("/usr/local/share/louhi/icons"),
+        // User data directory
+        QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation) + "/icons",
+    };
+
+    for (const QString& dir : candidates) {
+        QDir d(dir);
+        if (d.exists("map/iconsets") && d.exists("map/2525")) {
+            return d.absolutePath();
+        }
+    }
+
+    qWarning() << "OsgEarthPlugin: icons directory not found — tried:";
+    for (const QString& dir : candidates)
+        qWarning() << "  " << dir;
+    return QString();
+}
+
+
 bool OsgEarthPlugin::load()
 {
     qDebug() << "OsgEarth Plugin: Loading";
@@ -111,17 +142,15 @@ bool OsgEarthPlugin::initialize()
             m_mapWidget->setSource(source);
         });
 
-
     // Load iconsets and 2525B tactical icons
-    QString iconsetsPath = QApplication::applicationDirPath() + "/../assets/icons/map/iconsets";
-    if (!QDir(iconsetsPath).exists()) {
-        iconsetsPath = QDir::currentPath() + "/assets/icons/map/iconsets";
+    QString iconsDir = findIconsBaseDir();
+    if (!iconsDir.isEmpty()) {
+        m_iconResolver.loadAll(
+            iconsDir + "/map/iconsets",
+            iconsDir + "/map/2525");
+    } else {
+        qWarning() << "OsgEarthPlugin: icons unavailable, CoT icons will not render";
     }
-    QString tftDir = QApplication::applicationDirPath() + "/../assets/icons/map/2525";
-    if (!QDir(tftDir).exists()) {
-        tftDir = QDir::currentPath() + "/assets/icons/map/2525";
-    }
-    m_iconResolver.loadAll(iconsetsPath, tftDir);
 
     connect(m_mapWidget, &OsgEarthMapWidget::sourceChanged, this,
         [this](const QString& sourceName) {
