@@ -90,6 +90,37 @@ static osg::Image* qImageToOsgImage(const QImage& qimg, int size = 32)
                      data, osg::Image::USE_NEW_DELETE);
     return osgImg;
 }
+// Determine altitude mode from CoT type (third dash-separated token = dimension)
+//   G=Ground → RELATIVE with 2m offset
+//   A=Air    → ABSOLUTE (use reported HAE)
+//   S=Sea    → RELATIVE with 0m
+//   U=Subsurface → ABSOLUTE
+//   F=SOF    → RELATIVE with 2m offset
+//   default  → RELATIVE with 2m
+static osgEarth::GeoPoint entityPosition(const MapEntity& entity)
+{
+    double alt = 2.0;
+    osgEarth::AltitudeMode mode = osgEarth::ALTMODE_RELATIVE;
+
+    QStringList parts = entity.cotType.split('-');
+    if (parts.size() >= 3) {
+        QString dim = parts[2].toUpper();
+        if (dim == QLatin1String("A")) {
+            mode = osgEarth::ALTMODE_ABSOLUTE;
+            alt = entity.alt;
+        } else if (dim == QLatin1String("U")) {
+            mode = osgEarth::ALTMODE_ABSOLUTE;
+            alt = entity.alt;
+        } else if (dim == QLatin1String("S")) {
+            alt = 0.0;
+        }
+    }
+    // G, F, others: RELATIVE at 2m (default)
+
+    return osgEarth::GeoPoint(
+        osgEarth::SpatialReference::get("wgs84"),
+        entity.lon, entity.lat, alt, mode);
+}
 
 void OsgEarthMapWidget::addOrUpdateEntity(const MapEntity& entity)
 {
@@ -100,13 +131,13 @@ void OsgEarthMapWidget::addOrUpdateEntity(const MapEntity& entity)
     if (entity.staleTime.isValid())
         m_staleTimes[entity.uid] = entity.staleTime;
 
+    osgEarth::GeoPoint pos = entityPosition(entity);
+
     // Check if entity already exists — update position and icon
     auto it = m_entities.find(entity.uid);
     if (it != m_entities.end()) {
         osgEarth::PlaceNode* node = it.value().get();
-        node->setPosition(osgEarth::GeoPoint(
-            osgEarth::SpatialReference::get("wgs84"),
-            entity.lon, entity.lat, entity.alt));
+        node->setPosition(pos);
         if (!entity.icon.isNull()) {
             node->setIconImage(qImageToOsgImage(entity.icon));
         }
@@ -116,9 +147,7 @@ void OsgEarthMapWidget::addOrUpdateEntity(const MapEntity& entity)
 
     // Create new PlaceNode
     osgEarth::PlaceNode* node = new osgEarth::PlaceNode();
-    node->setPosition(osgEarth::GeoPoint(
-        osgEarth::SpatialReference::get("wgs84"),
-        entity.lon, entity.lat, entity.alt));
+    node->setPosition(pos);
     node->setText(entity.callsign.toStdString());
 
     if (!entity.icon.isNull()) {

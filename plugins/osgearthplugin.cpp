@@ -439,10 +439,11 @@ void OsgEarthPlugin::deliverMessage(const QString& topic, const QString& payload
     if (entity.uid.isEmpty())
         return;
 
-    // Resolve icon:
-    //   Primary: milsymId (explicit 2525B from CoT detail) -> 2525/ directory
-    //   Fallback: CoT type -> cotToSidc -> 2525/ directory
-    //   Only if usericon attribute: iconset resolver
+    qDebug() << "OsgEarthPlugin: entity" << entity.uid << "type" << entity.cotType
+             << "pos" << entity.lat << entity.lon << entity.alt
+             << "icon null?" << entity.icon.isNull();
+
+    // Resolve icon: milsymId → 2525B, cotType → 2525B, iconsetPath → iconset
     entity.icon = m_iconResolver.resolveIcon(entity.cotType, entity.iconsetPath, entity.milsymId);
 
     // Add or update entity on the map
