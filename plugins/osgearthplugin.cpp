@@ -440,12 +440,9 @@ void OsgEarthPlugin::deliverMessage(const QString& topic, const QString& payload
     if (entity.uid.isEmpty())
         return;
 
-    qDebug() << "OsgEarthPlugin: entity" << entity.uid << "type" << entity.cotType
-             << "pos" << entity.lat << entity.lon << entity.alt
-             << "icon null?" << entity.icon.isNull();
-
     // Resolve icon: milsymId → 2525B, cotType → 2525B, iconsetPath → iconset
-    entity.icon = m_iconResolver.resolveIcon(entity.cotType, entity.iconsetPath, entity.milsymId);
+    entity.icon = m_iconResolver.resolveIcon(entity.cotType, entity.iconsetPath,
+                                             entity.milsymId, entity.callsign, entity.uid);
 
     // Add or update entity on the map
     m_mapWidget->addOrUpdateEntity(entity);

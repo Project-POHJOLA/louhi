@@ -32,7 +32,9 @@ public:
     // Falls back to iconset only when iconsetPath is non-empty
     QImage resolveIcon(const QString& cotType,
                        const QString& iconsetPath = QString(),
-                       const QString& milsymId = QString()) const;
+                       const QString& milsymId = QString(),
+                       const QString& callsign = QString(),
+                       const QString& uid = QString()) const;
 
 private:
     void loadIconset(const QString& xmlPath);

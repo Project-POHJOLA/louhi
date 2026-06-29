@@ -240,17 +240,17 @@ QImage IconsetResolver::resolve2525Icon(const QString& sidc) const
 
 QImage IconsetResolver::resolveIcon(const QString& cotType,
                                      const QString& iconsetPath,
-                                     const QString& milsymId) const
+                                     const QString& milsymId,
+                                     const QString& callsign,
+                                     const QString& uid) const
 {
     // Priority 1: explicit usericon -> iconset resolver
     if (!iconsetPath.isEmpty()) {
-        // iconsetPath can be absolute or relative
         QFileInfo fi(iconsetPath);
         if (fi.isAbsolute() && fi.exists()) {
             QImage img(iconsetPath);
             if (!img.isNull()) return img;
         } else {
-            // Search in all loaded iconsets
             for (const IconsetInfo& is : m_iconsets) {
                 QString absPath = is.baseDir.absoluteFilePath(iconsetPath);
                 if (QFile::exists(absPath)) {
@@ -266,6 +266,8 @@ QImage IconsetResolver::resolveIcon(const QString& cotType,
         QString sidc = cleanSidc(milsymId);
         QImage img = resolve2525Icon(sidc);
         if (!img.isNull()) return img;
+        qDebug() << "IconsetResolver: milsymId fallback for" << callsign << uid
+                 << "type" << cotType << "usericon" << iconsetPath;
     }
 
     // Priority 3: CoT type -> 2525B SIDC -> 2525B directory
@@ -273,9 +275,11 @@ QImage IconsetResolver::resolveIcon(const QString& cotType,
         QString sidc = cotToSidc(cotType);
         QImage img = resolve2525Icon(sidc);
         if (!img.isNull()) return img;
+        qDebug() << "IconsetResolver: 2525B domain fallback for" << callsign << uid
+                 << "type" << cotType << "usericon" << iconsetPath;
     }
 
-    // Priority 4: exact CoT type match in iconset typeMap (fallback for non-2525B types)
+    // Priority 4: exact CoT type match in iconset typeMap
     for (const IconsetInfo& is : m_iconsets) {
         auto it = is.typeMap.constFind(cotType);
         if (it != is.typeMap.constEnd()) {
@@ -309,6 +313,8 @@ QImage IconsetResolver::resolveIcon(const QString& cotType,
     }
 
     // Priority 7: default icon based on affiliation
+    qDebug() << "IconsetResolver: default affiliation fallback for" << callsign << uid
+             << "type" << cotType << "usericon" << iconsetPath;
     return findDefaultIcon(affiliationFromType(cotType));
 }
 
