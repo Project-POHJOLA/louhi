@@ -68,22 +68,26 @@ void IconsetResolver::loadIconset(const QString& xmlPath)
             info.defaultUnknown = xml.attributes().value("defaultUnknown").toString();
             info.defaultGroup = xml.attributes().value("defaultGroup").toString();
 
+            int totalIcons = 0;
+            int mappedIcons = 0;
             while (!xml.atEnd() && !xml.hasError()) {
                 xml.readNext();
                 if (xml.isStartElement() && xml.name() == QStringLiteral("icon")) {
+                    totalIcons++;
                     QString type2525b = xml.attributes().value("type2525b").toString();
                     QString groupName = xml.attributes().value("groupName").toString();
                     QString iconName = xml.attributes().value("name").toString();
 
                     if (!type2525b.isEmpty() && !groupName.isEmpty() && !iconName.isEmpty()) {
                         info.typeMap[type2525b] = groupName + "/" + iconName;
+                        mappedIcons++;
                     }
                 }
                 if (xml.isEndElement() && xml.name() == QStringLiteral("iconset")) {
                     break;
                 }
             }
-            break;
+            qDebug() << "IconsetResolver:" << info.name << "-" << totalIcons << "icons," << mappedIcons << "type2525b mappings";
         }
     }
 
@@ -93,7 +97,7 @@ void IconsetResolver::loadIconset(const QString& xmlPath)
 
     if (!info.uid.isEmpty()) {
         m_iconsets.append(info);
-        qDebug() << "IconsetResolver: loaded" << info.name << "with" << info.typeMap.size() << "icons";
+        // (log already emitted per-iconset above with total/mapped counts)
     }
 }
 
