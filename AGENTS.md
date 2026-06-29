@@ -268,4 +268,12 @@ Local cross-compilation (Linux→Windows MingW, Linux→macOS via `osxcross`) is
 **What:** Rebuilt OpenSceneGraph from source (`deps/OpenSceneGraph`) with `-DOPENGL_PROFILE=GL3 -DOSG_GL_CONTEXT_VERSION=4.6`.
 **Why:** OSG was previously built with default GL2 profile. AGENTS.md requires GL3 for osgEarth compatibility. OSG has no Qt dependency, so no Qt6-related change was needed.
 **Status:** Built and installed to `/usr/local/lib/`. `sudo ldconfig` run.
-**Next step:** Upgrade osgEarth to 3.10+ and rebuild against Qt6.
+**Next step:** Rebuild osgEarth against the new GL3-build OSG.
+
+### 2026-06-29 — Step 2: osgEarth rebuilt against GL3-profile OSG
+
+**What:** Rebuilt osgEarth 3.8 from source (`deps/osgearth`) against the newly-built OSG (GL3 profile).
+**Why:** Previously-installed osgEarth was linked against the old GL2-profile OSG. Rebuild required for ABI compatibility.
+**Note:** osgEarth has no Qt dependency — the Qt integration is entirely on the LOUHI plugin side (`osgearthplugin`). No Qt6-related change was needed for osgEarth itself.
+**Status:** Built and installed to `/usr/local/lib/`. `sudo ldconfig` run.
+**Next step:** Update CMake configuration files from Qt5 to Qt6.
