@@ -33,7 +33,7 @@ OsgEarthPlugin::OsgEarthPlugin(QObject* parent)
     m_info.enabled = true;
     m_info.dependencies = QStringList();
     m_info.capabilities = QStringList() << "Map" << "3D" << "osgEarth" << "OSM" << "WMS" << "XYZ";
-    m_info.subscribeTopics = QStringList() << "location.position" << "location.position.reply" << "msg.>" << "alert.>";
+    m_info.subscribeTopics = QStringList() << "location.position" << "location.position.reply" << "msg.>" << "alert.>" << "tak.>";
     m_info.publishTopics = QStringList() << "location.request";
 }
 
