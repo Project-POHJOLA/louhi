@@ -33,6 +33,7 @@
 #include <osgEarth/EarthManipulator>
 #include <osgEarth/XYZ>
 #include <osgEarth/WMS>
+#include <osgEarth/HTTPClient>
 #include <osgEarth/GeoData>
 OsgEarthMapWidget::OsgEarthMapWidget(QWidget* parent)
     : QOpenGLWidget(parent)
@@ -40,8 +41,9 @@ OsgEarthMapWidget::OsgEarthMapWidget(QWidget* parent)
     , m_centerLon(24.9384)
     , m_zoom(10)
     , m_staleTimer(nullptr)
+    , m_updateTimer(nullptr)
+    , m_mapInitialized(false)
 {
-    osg::setNotifyLevel(osg::WARN);
 
     setMinimumSize(200, 200);
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
@@ -165,6 +167,7 @@ void OsgEarthMapWidget::initializeGL()
 {
     if (m_mapInitialized) return;
     osgEarth::initialize();
+    osgEarth::HTTPClient::setUserAgent("Louhi/0.1 (+https://github.com/sgofferj/LOUHI)");
     osg::DisplaySettings::instance()->setNumMultiSamples(4);
 
     m_viewer = new osgViewer::Viewer;
