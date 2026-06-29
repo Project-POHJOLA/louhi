@@ -3,7 +3,6 @@
 
 #include <QString>
 #include <QDateTime>
-#include <QDomDocument>
 
 enum class CotEventType {
     a_f_G_E_V_C,

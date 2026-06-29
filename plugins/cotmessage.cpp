@@ -1,5 +1,5 @@
 #include "cotmessage.h"
-#include <QDomElement>
+#include <QXmlStreamReader>
 #include <QXmlStreamWriter>
 #include <QBuffer>
 #include <QDebug>
@@ -158,51 +158,48 @@ CoTMessage CoTMessageParser::parse(const QString& xml) {
     CoTMessage msg;
     msg.rawXml = xml;
 
-    QDomDocument doc;
-    if (!doc.setContent(xml)) {
-        return msg;
-    }
+    QXmlStreamReader reader(xml);
 
-    QDomElement root = doc.documentElement();
-    if (root.tagName() != "event") {
-        return msg;
-    }
+    while (!reader.atEnd() && !reader.hasError()) {
+        if (reader.readNext() != QXmlStreamReader::StartElement)
+            continue;
 
-    msg.uid = root.attribute("uid");
-    msg.how = root.attribute("how");
+        if (reader.name() == QLatin1String("event")) {
+            QXmlStreamAttributes attrs = reader.attributes();
+            msg.uid = attrs.value("uid").toString();
+            msg.how = attrs.value("how").toString();
 
-    QString typeStr = root.attribute("type");
-    if (typeStr == "a-f-G-E-V-C") msg.eventType = CotEventType::a_f_G_E_V_C;
-    else if (typeStr == "a-u-G-F-I") msg.eventType = CotEventType::a_u_G_F_I;
-    else if (typeStr == "b-m-p-s-p") msg.eventType = CotEventType::b_m_p_s_p;
-    else if (typeStr == "t-x-c-o-n") msg.eventType = CotEventType::t_x_c_o_n;
-    else msg.eventType = CotEventType::unknown;
+            QString typeStr = attrs.value("type").toString();
+            if (typeStr == "a-f-G-E-V-C") msg.eventType = CotEventType::a_f_G_E_V_C;
+            else if (typeStr == "a-u-G-F-I") msg.eventType = CotEventType::a_u_G_F_I;
+            else if (typeStr == "b-m-p-s-p") msg.eventType = CotEventType::b_m_p_s_p;
+            else if (typeStr == "t-x-c-o-n") msg.eventType = CotEventType::t_x_c_o_n;
+            else msg.eventType = CotEventType::unknown;
 
-    msg.time = QDateTime::fromString(root.attribute("time"), Qt::ISODate);
-    msg.start = QDateTime::fromString(root.attribute("start"), Qt::ISODate);
-    msg.stale = QDateTime::fromString(root.attribute("stale"), Qt::ISODate);
-
-    QDomElement detail = root.firstChildElement("detail");
-    if (!detail.isNull()) {
-        QDomElement contact = detail.firstChildElement("contact");
-        if (!contact.isNull()) {
-            msg.contact.callsign = contact.attribute("callsign");
-            msg.contact.endpoint = contact.attribute("endpoint");
+            msg.time = QDateTime::fromString(attrs.value("time").toString(), Qt::ISODate);
+            msg.start = QDateTime::fromString(attrs.value("start").toString(), Qt::ISODate);
+            msg.stale = QDateTime::fromString(attrs.value("stale").toString(), Qt::ISODate);
         }
-
-        QDomElement remarks = detail.firstChildElement("remarks");
-        if (!remarks.isNull()) {
-            msg.remarks = remarks.text();
+        else if (reader.name() == QLatin1String("point")) {
+            QXmlStreamAttributes attrs = reader.attributes();
+            msg.point.lat = attrs.value("lat").toDouble();
+            msg.point.lon = attrs.value("lon").toDouble();
+            msg.point.hae = attrs.value("hae").toDouble();
+            msg.point.ce = attrs.value("ce").toDouble();
+            msg.point.le = attrs.value("le").toDouble();
+        }
+        else if (reader.name() == QLatin1String("contact")) {
+            QXmlStreamAttributes attrs = reader.attributes();
+            msg.contact.callsign = attrs.value("callsign").toString();
+            msg.contact.endpoint = attrs.value("endpoint").toString();
+        }
+        else if (reader.name() == QLatin1String("remarks")) {
+            msg.remarks = reader.readElementText();
         }
     }
 
-    QDomElement point = root.firstChildElement("point");
-    if (!point.isNull()) {
-        msg.point.lat = point.attribute("lat").toDouble();
-        msg.point.lon = point.attribute("lon").toDouble();
-        msg.point.hae = point.attribute("hae").toDouble();
-        msg.point.ce = point.attribute("ce").toDouble();
-        msg.point.le = point.attribute("le").toDouble();
+    if (reader.hasError()) {
+        qDebug() << "CoT: XML parse error:" << reader.errorString();
     }
 
     return msg;
@@ -218,25 +215,27 @@ bool CoTMessageParser::isValid(const QString& xml) {
         return false;
     }
 
-    QDomDocument doc;
-    QString errorMsg;
-    int errorLine = 0, errorCol = 0;
-    if (!doc.setContent(trimmed, &errorMsg, &errorLine, &errorCol)) {
-        qDebug() << "CoT: XML parse error at line" << errorLine << "col" << errorCol << ":" << errorMsg;
+    QXmlStreamReader reader(trimmed);
+
+    while (!reader.atEnd() && !reader.hasError()) {
+        if (reader.readNext() != QXmlStreamReader::StartElement)
+            continue;
+
+        if (reader.name() == QLatin1String("event")) {
+            if (reader.attributes().value("uid").isEmpty()) {
+                qDebug() << "CoT: Missing uid attribute:" << trimmed.left(200);
+                return false;
+            }
+            return true;
+        }
+    }
+
+    if (reader.hasError()) {
+        qDebug() << "CoT: XML parse error:" << reader.errorString();
         qDebug() << "CoT: Invalid XML:" << trimmed.left(200);
         return false;
     }
 
-    QDomElement root = doc.documentElement();
-    if (root.tagName() != "event") {
-        qDebug() << "CoT: Root element is" << root.tagName() << "(expected event):" << trimmed.left(200);
-        return false;
-    }
-
-    if (root.attribute("uid").isEmpty()) {
-        qDebug() << "CoT: Missing uid attribute:" << trimmed.left(200);
-        return false;
-    }
-
-    return true;
+    qDebug() << "CoT: Root element is not event (no event element found):" << trimmed.left(200);
+    return false;
 }
