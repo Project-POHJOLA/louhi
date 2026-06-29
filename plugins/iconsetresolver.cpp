@@ -197,8 +197,6 @@ QImage IconsetResolver::resolve2525Icon(const QString& sidc) const
     if (sidc.isEmpty() || m_2525Dir.path().isEmpty())
         return QImage();
 
-    static constexpr int kIconSize = 48;
-
     QString lower = sidc.toLower();
     QString current = lower;
 
@@ -213,7 +211,10 @@ QImage IconsetResolver::resolve2525Icon(const QString& sidc) const
             QString absPath = m_2525Dir.absoluteFilePath(current + QStringLiteral(".svg"));
             if (QFile::exists(absPath)) {
                 QSvgRenderer renderer(absPath);
-                QImage img(kIconSize, kIconSize, QImage::Format_ARGB32);
+                QSize sz = renderer.defaultSize();
+                if (sz.isEmpty() || sz.width() < 4 || sz.height() < 4)
+                    sz = QSize(48, 48);
+                QImage img(sz, QImage::Format_ARGB32);
                 img.fill(Qt::transparent);
                 QPainter painter(&img);
                 renderer.render(&painter);
