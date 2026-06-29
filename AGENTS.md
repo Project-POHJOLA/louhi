@@ -349,3 +349,7 @@ Local cross-compilation (Linux→Windows MingW, Linux→macOS via `osxcross`) is
 **2525B directory:** `assets/icons/map/2525/` — 3280 pre-rendered PNGs named by 15-char lowercased 2525B SIDC (e.g. `sfgp-----------.png`).
 
 **Result:** Builds clean, 3280 2525B icons indexed.
+
+**Iconset counts per iconset.xml (total icons, type2525b-mapped):**
+Default: 821 / 818, FEMA Icons: 40 / 40, Generic Icons: 657 / 0,
+Google: 96 / 96, OSM: 347 / 0, WASP Icons: 35 / 0
