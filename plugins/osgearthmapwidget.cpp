@@ -167,6 +167,16 @@ void OsgEarthMapWidget::clearEntities()
     m_staleTimes.clear();
 }
 
+void OsgEarthMapWidget::removeEntity(const QString& uid)
+{
+    m_staleTimes.remove(uid);
+    auto it = m_entities.find(uid);
+    if (it != m_entities.end()) {
+        m_annotationLayer->getGroup()->removeChild(it.value().get());
+        m_entities.erase(it);
+    }
+}
+
 void OsgEarthMapWidget::staleCheck()
 {
     if (m_staleTimes.isEmpty()) return;

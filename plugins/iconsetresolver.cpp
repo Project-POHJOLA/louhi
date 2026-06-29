@@ -205,35 +205,35 @@ QImage IconsetResolver::resolve2525Icon(const QString& sidc) const
         return QImage();
 
     QString lower = sidc.toLower();
+    QString current = lower;
 
-    // Try progressively shorter SIDC codes
-    // Start with full 15 chars, then strip trailing non-dash characters
-    for (int len = 15; len >= 4; --len) {
-        QString candidate = lower.left(len);
-        // Pad back to 15 with dashes for lookup
-        while (candidate.length() < 15)
-            candidate += QLatin1Char('-');
-
-        if (m_2525Files.contains(candidate)) {
-            // Check image cache
-            auto it = m_imageCache.constFind(candidate);
+    // Progressive fallback: strip the rightmost non-dash character (function code)
+    // until we find a match or hit the 4-char domain minimum (S*GP)
+    while (current.length() >= 4) {
+        if (m_2525Files.contains(current)) {
+            auto it = m_imageCache.constFind(current);
             if (it != m_imageCache.constEnd())
                 return it.value();
 
-            // Load from disk
-            QString absPath = m_2525Dir.absoluteFilePath(candidate + QLatin1String(".png"));
+            QString absPath = m_2525Dir.absoluteFilePath(current + QStringLiteral(".png"));
             QImage img(absPath);
             if (!img.isNull()) {
-                m_imageCache[candidate] = img;
+                m_imageCache[current] = img;
                 return img;
             }
         }
 
-        // For next iteration: strip the character at position (len-1)
-        // by trimming one more from the effective function code portion
+        // Replace the last non-dash character with a dash
+        int pos = current.length() - 1;
+        while (pos >= 0 && current[pos] == QLatin1Char('-'))
+            pos--;
+        // Don't strip below the S*GP domain minimum (4 chars)
+        if (pos < 4)
+            break;
+        current[pos] = QLatin1Char('-');
     }
 
-    return QImage(); // Not found
+    return QImage();
 }
 
 // ---- Icon resolution ----
