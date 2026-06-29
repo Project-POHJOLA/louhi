@@ -101,7 +101,7 @@ if(osgEarth_FOUND)
 
     target_link_libraries(osgearthplugin
         plugininterface
-        Qt6::Widgets Qt6::Core Qt6::Gui Qt6::Network Qt6::OpenGLWidgets
+        Qt6::Widgets Qt6::Core Qt6::Gui Qt6::Network Qt6::OpenGLWidgets Qt6::Svg
         ${OSGEARTH_LIBRARIES}
     )
 

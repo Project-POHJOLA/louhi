@@ -5,7 +5,8 @@
 #include <QFileInfo>
 #include <QXmlStreamReader>
 #include <QFile>
-
+#include <QSvgRenderer>
+#include <QPainter>
 IconsetResolver::IconsetResolver()
 {
 }
@@ -32,13 +33,13 @@ void IconsetResolver::loadAll(const QString& iconsetsDir, const QString& twoFive
         if (m_2525Dir.exists()) {
             const QStringList entries = m_2525Dir.entryList(QDir::Files | QDir::NoDotAndDotDot);
             for (const QString& fn : entries) {
-                // Strip .png extension -> e.g. "sfgp-----------"
+                // Strip .svg extension -> e.g. "sfgp-----------"
                 QString base = fn;
-                if (base.endsWith(".png", Qt::CaseInsensitive))
+                if (base.endsWith(".svg", Qt::CaseInsensitive))
                     base.chop(4);
                 m_2525Files.insert(base.toLower());
             }
-            qDebug() << "IconsetResolver: loaded" << m_2525Files.size() << "2525B icons from" << twoFiveTwoDir;
+            qDebug() << "IconsetResolver: loaded" << m_2525Files.size() << "2525B SVG icons from" << twoFiveTwoDir;
         } else {
             qWarning() << "IconsetResolver: 2525B dir not found" << twoFiveTwoDir;
         }
@@ -46,24 +47,6 @@ void IconsetResolver::loadAll(const QString& iconsetsDir, const QString& twoFive
 }
 
 
-// Maps CoT affiliation letter → MIL-STD-2525B affiliation code
-static QString cotAffilToSidc(const QString& cotAffil)
-{
-    // CoT: f=Friendly, h=Hostile, s=Suspect, u=Unknown, n=Neutral,
-    //      p=Pending, a=Assumed Friend, o=Other
-    // 2525B: F=Friend, H=Hostile, U=Unknown, N=Neutral, S=Suspect
-    static const QHash<QString, QString> map = {
-        { QStringLiteral("f"), QStringLiteral("f") },
-        { QStringLiteral("h"), QStringLiteral("h") },
-        { QStringLiteral("s"), QStringLiteral("u") },  // suspect → unknown (AIS civil traffic)
-        { QStringLiteral("u"), QStringLiteral("u") },
-        { QStringLiteral("n"), QStringLiteral("n") },
-        { QStringLiteral("p"), QStringLiteral("f") },  // pending → friend
-        { QStringLiteral("a"), QStringLiteral("f") },  // assumed friend → friend
-        { QStringLiteral("o"), QStringLiteral("u") },  // other → unknown
-    };
-    return map.value(cotAffil.toLower(), QStringLiteral("u"));
-}
 void IconsetResolver::loadIconset(const QString& xmlPath)
 {
     QFile file(xmlPath);
@@ -134,8 +117,10 @@ QString IconsetResolver::cotToSidc(const QString& cotType) const
     // Position 1: Scheme (always S = Warfighting)
     QString sidc = QLatin1String("S");
 
-    // Position 2: Affiliation from parts[1] — map CoT→2525B
-    QString affil = cotAffilToSidc(parts[1]);
+    // Position 2: Affiliation from parts[1] — CoT code maps directly to SIDC
+    QString affil = parts[1].toLower();
+    if (affil.isEmpty())
+        affil = QStringLiteral("u");
     sidc += affil.at(0);
 
     // Position 3: Battle Dimension from parts[2]
@@ -212,6 +197,8 @@ QImage IconsetResolver::resolve2525Icon(const QString& sidc) const
     if (sidc.isEmpty() || m_2525Dir.path().isEmpty())
         return QImage();
 
+    static constexpr int kIconSize = 48;
+
     QString lower = sidc.toLower();
     QString current = lower;
 
@@ -223,11 +210,18 @@ QImage IconsetResolver::resolve2525Icon(const QString& sidc) const
             if (it != m_imageCache.constEnd())
                 return it.value();
 
-            QString absPath = m_2525Dir.absoluteFilePath(current + QStringLiteral(".png"));
-            QImage img(absPath);
-            if (!img.isNull()) {
-                m_imageCache[current] = img;
-                return img;
+            QString absPath = m_2525Dir.absoluteFilePath(current + QStringLiteral(".svg"));
+            if (QFile::exists(absPath)) {
+                QSvgRenderer renderer(absPath);
+                QImage img(kIconSize, kIconSize, QImage::Format_ARGB32);
+                img.fill(Qt::transparent);
+                QPainter painter(&img);
+                renderer.render(&painter);
+                painter.end();
+                if (!img.isNull()) {
+                    m_imageCache[current] = img;
+                    return img;
+                }
             }
         }
 
@@ -372,12 +366,13 @@ QImage IconsetResolver::findDefaultIcon(const QString& affiliation) const
 QString IconsetResolver::affiliationFromType(const QString& cotType)
 {
     // CoT type format: a-f-G-U-C, a-h-G, a-u-G, a-n-G, etc.
-    // Second token = affiliation: f=friendly, h=hostile, u=unknown, n=neutral
+    // Second token = affiliation: f=friendly, h=hostile, s=suspect, u=unknown,
+    //                  n=neutral, p=presumed friend, a=assumed friend, o=other
     QStringList parts = cotType.split('-');
     if (parts.size() >= 2) {
-        return cotAffilToSidc(parts[1]);
+        return parts[1].toLower();
     }
-    return QStringLiteral("U"); // default unknown
+    return QStringLiteral("u"); // default unknown
 }
 
 QString IconsetResolver::typePrefix(const QString& cotType)
