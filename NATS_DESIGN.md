@@ -320,6 +320,21 @@ Unlike `msg.<org_path>.*` which is access-controlled by NATS ACLs, DM and group 
 
 This also means DM traffic naturally crosses echelon boundaries: a squad member can DM the battalion commander directly, and the commander's JWT (with `sub: dm.inbox.bn-cdr.>`) receives it.
 
+### 5.6 Standard echelon group chats — no router needed
+
+Echelon-native group chats use the `msg.<org_path>` tree directly — **no router**, no group membership config. The hierarchy IS the chat room:
+
+| Group | Publish to | Who receives |
+|-------|-----------|-------------|
+| Squad chat | `msg.<...>.squ-N.msg` | Squad members only |
+| Platoon chat | `msg.<...>.plt-N.msg` | Platoon lead + all squads |
+| Company chat | `msg.<...>.co-N.msg` | CO + all platoons |
+| Battalion chat | `msg.<...>.bn-N.msg` | Bn Cdr + all companies |
+| Brigade chat | `msg.<...>.bde-N.msg` | Bde Cdr + all battalions |
+| Division chat | `msg.div-N.msg` | Div HQ + all brigades |
+
+Each role's existing `pub` scope covers the relevant subject — a squad lead publishes `msg.<org_path>.plt-N.msg` for platoon-wide traffic, and their JWT already allows it. The router is only needed for **cross-org** DMs and **ad-hoc** groups (5.1–5.5).
+
 ---
 
 ## 6. JetStream Streams
