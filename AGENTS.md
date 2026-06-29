@@ -19,6 +19,13 @@ LOUHI shall be the main app of a modern Battle Management System. It will be one
 - Plugins are compiled as shared libraries (.so files) and loaded at runtime via Qt's plugin system
 - Core interface library (`libplugininterface.so`) shared between main app and plugins
 
+### Qt Version
+
+- **Qt 6** (migrated from Qt 5 on 2026-06-29)
+- Minimum Qt 6.4 (Ubuntu 24.04 LTS / Noble)
+- Build system uses `find_package(Qt6 ...)` with components: Widgets, Core, Gui, Network, SerialPort, OpenGLWidgets
+- Optional: `Qt6Positioning` (for GPS support), `Qt6::Svg` (for SVG icon support)
+
 ### Directory Structure
 
 ```
@@ -202,7 +209,7 @@ cd build
 
 ### Required System Packages (Ubuntu/Debian)
 ```bash
-sudo apt install qtbase5-dev libssl-dev cmake build-essential protobuf-compiler
+sudo apt install qt6-base-dev qt6-tools-dev qt6-l10n-tools qt6-serialport-dev qt6-positioning-dev libssl-dev cmake build-essential protobuf-compiler
 ```
 
 ## Cross-Platform Compatibility
@@ -255,9 +262,9 @@ Native CI runners (GitHub Actions) are preferred over local cross-compilation:
 
 | Target    | Runner            | Qt install                    | Notes |
 |-----------|-------------------|-------------------------------|-------|
-| Linux     | `ubuntu-latest`   | `apt install qtbase5-dev`     | OSG/osgEarth must be built from source; ~20-30 min |
-| macOS     | `macos-latest`    | `brew install qt@5`           | Same osgEarth caveat |
-| Windows   | `windows-latest`  | `aqtinstall` Qt5 + MingW/MSVC | NATS C client compiles; osgEarth requires MSVC |
+| Linux     | `ubuntu-latest`   | `apt install qt6-base-dev qt6-tools-dev qt6-l10n-tools qt6-serialport-dev qt6-positioning-dev` | OSG/osgEarth must be built from source; ~20-30 min |
+| macOS     | `macos-latest`    | `brew install qt@6`           | Same osgEarth caveat |
+| Windows   | `windows-latest`  | `aqtinstall` Qt6 + MingW/MSVC | NATS C client compiles; osgEarth requires MSVC |
 
 Local cross-compilation (Linux→Windows MingW, Linux→macOS via `osxcross`) is possible but significantly more effort — Qt and osgEarth would need cross-compilation too. Not recommended unless CI is unavailable.
 
@@ -277,3 +284,31 @@ Local cross-compilation (Linux→Windows MingW, Linux→macOS via `osxcross`) is
 **Note:** osgEarth has no Qt dependency — the Qt integration is entirely on the LOUHI plugin side (`osgearthplugin`). No Qt6-related change was needed for osgEarth itself.
 **Status:** Built and installed to `/usr/local/lib/`. `sudo ldconfig` run.
 **Next step:** Update CMake configuration files from Qt5 to Qt6.
+
+### 2026-06-29 — Step 3: CMake configuration migrated to Qt6
+
+**What:** Updated all CMake files:
+- Root `CMakeLists.txt`: `find_package(Qt5 ...)` → `find_package(Qt6 ...)` with `OpenGLWidgets` component; removed `Qt5Xml` (classes moved to Qt6::Core)
+- `plugins/CMakeLists.txt`: All `Qt5::*` → `Qt6::*`; `Qt5Positioning_FOUND` → `Qt6Positioning_FOUND`; added `Qt6::OpenGLWidgets` for osgearthplugin
+- `cmake/PortableDeploy.cmake`: `qmake` → `qmake6`; Qt5 → Qt6 fallback plugin paths
+- `cmake/portable-deploy.sh.in`: `QT5_PLUGIN_DIR` → `QT6_PLUGIN_DIR`
+**Status:** Project configures and links against Qt6.
+
+### 2026-06-29 — Step 4: C++ code migrated to Qt6 APIs
+
+**What:**
+- `plugins/cotmessage.h`: Removed `#include <QDomDocument>` (not used in interface)
+- `plugins/cotmessage.cpp`: Rewrote `CoTMessageParser::parse()` and `CoTMessageParser::isValid()` from `QDomDocument` to `QXmlStreamReader` (Qt6 removed QtXml module)
+- `src/main.cpp`: `QLibraryInfo::location()` → `QLibraryInfo::path()` (Qt6 removed `location()`)
+**Status:** All code compiles cleanly against Qt6.
+
+### 2026-06-29 — Step 5: Full Qt6 build verified
+
+**What:** Clean build from scratch with `rm -rf build && mkdir build && cd build && cmake .. && make -j$(nproc)`.
+**Result:** All targets build successfully:
+- `louhi` (main executable) — links `libQt6Core`, `libQt6Gui`, `libQt6Widgets`
+- `libplugininterface.so` — shared interface library
+- `natsplugin.so`, `messageviewerplugin.so`, `takplugin.so`, `locationplugin.so`, `mapplugin.so`, `osgearthplugin.so` — all plugins, all link Qt6
+- `nats_static.a` — NATS C client (no Qt dependency)
+**Smoke test:** Binary starts, discovers all 6 plugins, loads and initializes them, CoT message parser works, TAK plugin auto-connects. No Qt5 libraries linked anywhere.
+**Next step:** User testing — run `./build/louhi` from the project root and verify functionality.

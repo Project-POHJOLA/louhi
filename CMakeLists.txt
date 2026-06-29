@@ -12,7 +12,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets Core Gui Network SerialPort)
+find_package(Qt6 REQUIRED COMPONENTS Widgets Core Gui Network SerialPort OpenGLWidgets)
 find_package(Qt6Positioning QUIET)
 find_package(OpenSSL REQUIRED)
 
