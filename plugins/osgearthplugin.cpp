@@ -427,6 +427,7 @@ MapEntity OsgEarthPlugin::parseCotMessage(const QString& topic, const QString& p
         qDebug() << "OsgEarthPlugin: CoT parse error" << xml.errorString();
         return MapEntity();
 }
+    return entity;
 }
 
 void OsgEarthPlugin::deliverMessage(const QString& topic, const QString& payload)
