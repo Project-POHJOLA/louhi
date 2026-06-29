@@ -48,13 +48,26 @@ alert.emergency.<echelon_path>
 alert.c2.<echelon_path>
 ```
 
+
+## 3. Protocol Layer
+
+The standard wire format for message payloads over NATS is **CoTXML** (Cursor-on-Target XML, the `<event>` document format used by the TAK ecosystem). This ensures interoperability with TAK clients, gateways, and existing tooling.
+
+A plugin MAY declare its own protocol by specifying a `protocol` field in its metadata or configuration (e.g. `"protocol": "json"`, `"protocol": "protobuf"`). When a plugin overrides the protocol, only subscribers that also speak that protocol will process the payload — the CoTXML parser ignores non-XML messages.
+
+| Aspect | Standard | Plugin override |
+|--------|----------|----------------|
+| Default wire format | CoTXML (`<event>`) | Per-plugin configuration |
+| Parsing | `CoTMessageParser` | Plugin-provided parser |
+| Backward compat | New plugins always understand CoTXML | Older plugins ignore unknown formats |
+
 ---
 
-## 3. Permission Model
+## 4. Permission Model
 
 The hierarchy IS the ACL. Each role gets a `pub` scope (what it can originate) and a `sub` scope (what it can read). Every scope is a wildcard — no denylist, no exceptions.
 
-### 3.1 Regular unit roles
+### 4.1 Regular unit roles
 
 ```mermaid
 graph TD
@@ -103,7 +116,7 @@ graph TD
 
 Key property: each level can only publish **into its own subtree** — no spoofing higher or sibling units. Each level receives everything from **one level deeper**.
 
-### 3.2 Cross-cutting roles
+### 4.2 Cross-cutting roles
 
 ```mermaid
 graph LR
@@ -135,9 +148,9 @@ graph LR
 
 ---
 
-## 4. Implementation: NATS JWT Auth
+## 5. Implementation: NATS JWT Auth
 
-### 4.1 Accounts (one per role archetype)
+### 5.1 Accounts (one per role archetype)
 
 Rather than one JWT per human, define **accounts** that encode the permission set. Each user's JWT references their account via `sub` claim.
 
@@ -176,7 +189,7 @@ flowchart LR
     A_cas --> CC
 ```
 
-### 4.2 Account permissions example (squad account)
+### 5.2 Account permissions example (squad account)
 
 ```json
 {
@@ -208,7 +221,7 @@ The account merely declares capability. The **individual user JWT** then scopes 
 
 This way account signing is a one-time setup; user signing stamps their `org_path` into the subject wildcards.
 
-### 4.3 Unit ID allocation
+### 5.3 Unit ID allocation
 
 A simple IDMS (or even a YAML file, early on) hands out the next unit identifier under its parent:
 
@@ -229,11 +242,11 @@ No account change needed — the squad account already allows `msg.>` pub/sub; t
 
 ---
 
-## 5. Direct Messages & Group Chats
+## 6. Direct Messages & Group Chats
 
 NATS has **no variable substitution** in permission subjects — no `${user}` or `$VAR` in `pub.allow`/`sub.allow`. If Alice's JWT allows `dm.>`, she could publish `dm.bob.>` and impersonate Bob's inbox. A different approach is needed.
 
-### 5.1 Architecture: Router/resolver pattern
+### 6.1 Architecture: Router/resolver pattern
 
 A lightweight NATS microservice (the **router**) acts as the delivery agent for all direct messages and ad-hoc group chats. Users never publish directly into another user's inbox.
 
@@ -267,7 +280,7 @@ flowchart LR
 | `group.send.<group_id>.<msg_id>` | Group member | — | Outbound group message |
 | `group.inbox.<group_id>.>` | Router only | Group members | Inbound group message |
 
-### 5.2 Router responsibilities
+### 6.2 Router responsibilities
 
 1. **Subscribe** to `dm.send.>` and `group.send.>`
 2. **Authenticate** the sender by verifying their NATS client certificate / JWT issuer — the sender's identity comes from the TLS client cert or the `iss` claim in the JWT, **not** from the subject tokens. This prevents impersonation.
@@ -275,7 +288,7 @@ flowchart LR
 4. **Re-publish** — send to `dm.inbox.<recipient_id>.<msg_id>` or `group.inbox.<group_id>.<msg_id>`, optionally with JetStream persistence.
 5. **(Optional) Ack tracking** — for DMs that need delivery confirmation.
 
-### 5.3 JWT permissions for DM/group
+### 6.3 JWT permissions for DM/group
 
 **Any user:**
 ```json
@@ -297,7 +310,7 @@ The user JWT bakes in their `<USER_ID>` on the `sub.allow` — no variable subst
 
 The router has broad pub/sub — trust is via separate authentication (client cert / cluster auth).
 
-### 5.4 Group chat membership
+### 6.4 Group chat membership
 
 Group definitions live outside NATS — in the LOUHI app config, a YAML file, or an IDMS:
 
@@ -314,13 +327,13 @@ groups:
 
 The router consults this on every `group.send.*` publish. Temporary groups (like `op-red-rover`) have a TTL and auto-expire.
 
-### 5.5 DM/group in the subject hierarchy
+### 6.5 DM/group in the subject hierarchy
 
 Unlike `msg.<org_path>.*` which is access-controlled by NATS ACLs, DM and group traffic is access-controlled **at the application layer** by the router. The NATS layer ensures only the intended recipient(s) have `sub` access to `dm.inbox.<user_id>.>` — nobody else can subscribe.
 
 This also means DM traffic naturally crosses echelon boundaries: a squad member can DM the battalion commander directly, and the commander's JWT (with `sub: dm.inbox.bn-cdr.>`) receives it.
 
-### 5.6 Standard echelon group chats — no router needed
+### 6.6 Standard echelon group chats — no router needed
 
 Echelon-native group chats use the `msg.<org_path>` tree directly — **no router**, no group membership config. The hierarchy IS the chat room:
 
@@ -333,11 +346,11 @@ Echelon-native group chats use the `msg.<org_path>` tree directly — **no route
 | Brigade chat | `msg.<...>.bde-N.msg` | Bde Cdr + all battalions |
 | Division chat | `msg.div-N.msg` | Div HQ + all brigades |
 
-Each role's existing `pub` scope covers the relevant subject — a squad lead publishes `msg.<org_path>.plt-N.msg` for platoon-wide traffic, and their JWT already allows it. The router is only needed for **cross-org** DMs and **ad-hoc** groups (5.1–5.5).
+Each role's existing `pub` scope covers the relevant subject — a squad lead publishes `msg.<org_path>.plt-N.msg` for platoon-wide traffic, and their JWT already allows it. The router is only needed for **cross-org** DMs and **ad-hoc** groups (6.1–6.6).
 
 ---
 
-## 6. JetStream Streams
+## 7. JetStream Streams
 
 Each message `type` maps to a stream or distinct subject prefix for retention:
 
@@ -358,9 +371,9 @@ For DM/group traffic, JetStream can optionally persist inbox subjects with `Limi
 
 ---
 
-## 7. Edge Cases
+## 8. Edge Cases
 
-### 7.1 Cross-unit chatter (adjacent squads)
+### 8.1 Cross-unit chatter (adjacent squads)
 
 Not allowed by default — correct per need-to-know. If a mission requires it, a **tactical override** publishes on a separate short-lived subject:
 
@@ -370,17 +383,17 @@ tmp.mission-42.squ-1.squ-7
 
 A temporary ACL update at the account level enables `sub` on `tmp.mission-42.>` for the involved user JWTs. After action, the subscription is revoked.
 
-### 7.2 Medic forwarding a CASEVAC
+### 8.2 Medic forwarding a CASEVAC
 
 Medic publishes `alert.casevac.div-1.bde-3.bn-2.co-1.plt-3.squ-1.<id>`. The CASEVAC controller (subscribed to `alert.casevac.>`) receives it instantly — no routing logic needed. The controller's acknowledgment publishes to `alert.casevac.status.<id>` which the medic (and parent unit) can see.
 
-### 7.3 Higher echelon reaching down
+### 8.3 Higher echelon reaching down
 
 A battalion commander publishes `msg.div-1.bde-3.bn-2.>` which includes `*.>` — their message lands on subjects under their whole subtree. Every unit in the battalion sees it. The commander does not need to know the exact `org_path` of the target — `co-1.plt-2.squ-3` is encoded in the message metadata, not the routing.
 
 ---
 
-## 8. Summary
+## 9. Summary
 
 ```
 msg.<org_path>.<type>       ← routine traffic, ACLs by hierarchy depth

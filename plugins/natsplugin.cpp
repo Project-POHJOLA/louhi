@@ -148,7 +148,6 @@ void NatsPlugin::publish(const QString& topic, const QString& payload)
     }
 
     if (m_clients.isEmpty()) {
-        qDebug() << "NATS Plugin: No connected servers, cannot publish" << topic;
         return;
     }
 

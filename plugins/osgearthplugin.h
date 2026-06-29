@@ -3,10 +3,13 @@
 
 #include "plugininterface.h"
 #include "mapsources.h"
+#include "osgearthmapwidget.h"
+#include "iconsetresolver.h"
 #include <QJsonObject>
+#include <QMap>
+#include <QTimer>
 #include <QtPlugin>
 
-class OsgEarthMapWidget;
 class BasemapDockWidget;
 
 class OsgEarthPlugin : public PluginInterface
@@ -44,6 +47,9 @@ private:
     MapSource configToMapSource(const QString& sourceName) const;
     QList<MapSource> currentCustomSources() const;
     void updateBasemapDockSources();
+
+    MapEntity parseCotMessage(const QString& topic, const QString& payload);
+    IconsetResolver m_iconResolver;
 
     PluginInfo m_info;
     OsgEarthMapWidget* m_mapWidget;

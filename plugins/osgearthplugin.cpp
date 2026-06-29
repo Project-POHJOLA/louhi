@@ -2,6 +2,11 @@
 #include "osgearthmapwidget.h"
 #include "osgearthbasemapdock.h"
 #include "mapsourcesdialog.h"
+#include "iconsetresolver.h"
+#include <QXmlStreamReader>
+#include <QApplication>
+#include <QDateTime>
+#include <QDir>
 #include "tilecache.h"
 
 #include <QDebug>
@@ -27,7 +32,7 @@ OsgEarthPlugin::OsgEarthPlugin(QObject* parent)
     m_info.enabled = true;
     m_info.dependencies = QStringList();
     m_info.capabilities = QStringList() << "Map" << "3D" << "osgEarth" << "OSM" << "WMS" << "XYZ";
-    m_info.subscribeTopics = QStringList() << "location.position" << "location.position.reply";
+    m_info.subscribeTopics = QStringList() << "location.position" << "location.position.reply" << "msg.>" << "alert.>";
     m_info.publishTopics = QStringList() << "location.request";
 }
 
@@ -105,6 +110,15 @@ bool OsgEarthPlugin::initialize()
         [this](const MapSource& source) {
             m_mapWidget->setSource(source);
         });
+
+
+    // Load iconsets for tactical icon resolution
+    QString iconsetsPath = QApplication::applicationDirPath() + "/../assets/icons/map/iconsets";
+    if (!QDir(iconsetsPath).exists()) {
+        // Try relative to source tree during development
+        iconsetsPath = QDir::currentPath() + "/assets/icons/map/iconsets";
+    }
+    m_iconResolver.loadAll(iconsetsPath);
 
     connect(m_mapWidget, &OsgEarthMapWidget::sourceChanged, this,
         [this](const QString& sourceName) {
@@ -304,8 +318,92 @@ void OsgEarthPlugin::setConfig(const QJsonObject& config)
     }
 }
 
+MapEntity OsgEarthPlugin::parseCotMessage(const QString& topic, const QString& payload)
+{
+    MapEntity entity;
+    Q_UNUSED(topic)
+
+    // Verify it looks like CoT XML
+    if (!payload.contains("<event") && !payload.contains("<Event"))
+        return entity;
+
+    QXmlStreamReader xml(payload);
+    while (!xml.atEnd() && !xml.hasError()) {
+        xml.readNext();
+        if (xml.isStartElement() && xml.name() == QStringLiteral("event")) {
+            entity.uid = xml.attributes().value("uid").toString();
+            QString cotType = xml.attributes().value("type").toString();
+            entity.cotType = cotType;
+            QString staleStr = xml.attributes().value("stale").toString();
+
+            // Parse stale time
+            if (!staleStr.isEmpty()) {
+                entity.staleTime = QDateTime::fromString(staleStr, Qt::ISODate);
+                if (!entity.staleTime.isValid()) {
+                    // Try with Z suffix
+                    entity.staleTime = QDateTime::fromString(staleStr.replace("Z", ""), Qt::ISODate);
+                }
+            }
+
+            // Only process atom (a-*) types and emergencies
+            if (!cotType.startsWith("a-"))
+                return entity;
+
+            // Skip ping/pong
+            QString uidLower = entity.uid.toLower();
+            if (uidLower.contains("ping") || uidLower.contains("pong") || uidLower.contains("takping"))
+                return entity;
+
+            // Parse point element
+            while (!xml.atEnd() && !xml.hasError()) {
+                xml.readNext();
+                if (xml.isStartElement() && xml.name() == QStringLiteral("point")) {
+                    entity.lat = xml.attributes().value("lat").toDouble();
+                    entity.lon = xml.attributes().value("lon").toDouble();
+                    entity.alt = xml.attributes().value("hae").toDouble();
+                    break;
+                }
+            }
+
+            // Parse detail element
+            while (!xml.atEnd() && !xml.hasError()) {
+                xml.readNext();
+                if (xml.isStartElement() && xml.name() == QStringLiteral("contact")) {
+                    entity.callsign = xml.attributes().value("callsign").toString();
+                }
+                if (xml.isStartElement() && xml.name() == QStringLiteral("usericon")) {
+                    entity.iconsetPath = xml.attributes().value("iconsetpath").toString();
+                }
+                if (xml.isEndElement() && xml.name() == QStringLiteral("detail")) {
+                    break;
+                }
+            }
+
+            break;
+        }
+    }
+
+    if (xml.hasError()) {
+        qDebug() << "OsgEarthPlugin: CoT parse error" << xml.errorString();
+        return MapEntity(); // return invalid
+    }
+
+    return entity;
+}
+
 void OsgEarthPlugin::deliverMessage(const QString& topic, const QString& payload)
 {
-    Q_UNUSED(topic)
-    Q_UNUSED(payload)
+    if (!m_mapWidget)
+        return;
+
+    // Try CoT parsing
+    MapEntity entity = parseCotMessage(topic, payload);
+    if (entity.uid.isEmpty())
+        return;
+
+    // Resolve icon: priority: iconsetpath → type match → default domain
+    entity.icon = m_iconResolver.resolveIcon(entity.cotType, entity.iconsetPath);
+
+    // Add or update entity on the map
+    m_mapWidget->addOrUpdateEntity(entity);
 }

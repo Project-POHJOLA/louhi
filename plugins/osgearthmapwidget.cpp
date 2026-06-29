@@ -4,6 +4,8 @@
 #include <QDebug>
 #include <QtMath>
 #include <QSurfaceFormat>
+#include <cstring>
+#include <osg/GL>
 #include <QTimer>
 
 #include <osg/Notify>
@@ -27,14 +29,17 @@
 
 #include <osgViewer/GraphicsWindow>
 #include <osg/GraphicsContext>
-
+#include <osgEarth/Viewpoint>
+#include <osgEarth/EarthManipulator>
+#include <osgEarth/XYZ>
+#include <osgEarth/WMS>
+#include <osgEarth/GeoData>
 OsgEarthMapWidget::OsgEarthMapWidget(QWidget* parent)
     : QOpenGLWidget(parent)
     , m_centerLat(60.1699)
     , m_centerLon(24.9384)
     , m_zoom(10)
-    , m_updateTimer(nullptr)
-    , m_mapInitialized(false)
+    , m_staleTimer(nullptr)
 {
     osg::setNotifyLevel(osg::WARN);
 
@@ -70,6 +75,90 @@ OsgEarthMapWidget::~OsgEarthMapWidget()
 void OsgEarthMapWidget::setCustomSources(const QList<MapSource>& sources)
 {
     m_customSources = sources;
+}
+
+static osg::Image* qImageToOsgImage(const QImage& qimg, int size = 32)
+{
+    QImage scaled = qimg.scaled(size, size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    scaled = scaled.convertToFormat(QImage::Format_RGBA8888);
+    unsigned char* data = new unsigned char[scaled.sizeInBytes()];
+    memcpy(data, scaled.bits(), scaled.sizeInBytes());
+    osg::Image* osgImg = new osg::Image();
+    osgImg->setImage(scaled.width(), scaled.height(), 1, 4, GL_RGBA, GL_UNSIGNED_BYTE,
+                     data, osg::Image::USE_NEW_DELETE);
+    return osgImg;
+}
+
+void OsgEarthMapWidget::addOrUpdateEntity(const MapEntity& entity)
+{
+    if (!m_mapInitialized || !m_annotationLayer.valid())
+        return;
+
+    // Track stale time even for updates
+    if (entity.staleTime.isValid())
+        m_staleTimes[entity.uid] = entity.staleTime;
+
+    // Check if entity already exists — update position and icon
+    auto it = m_entities.find(entity.uid);
+    if (it != m_entities.end()) {
+        osgEarth::PlaceNode* node = it.value().get();
+        node->setPosition(osgEarth::GeoPoint(
+            osgEarth::SpatialReference::get("wgs84"),
+            entity.lon, entity.lat, entity.alt));
+        if (!entity.icon.isNull()) {
+            node->setIconImage(qImageToOsgImage(entity.icon));
+        }
+        node->setText(entity.callsign.toStdString());
+        return;
+    }
+
+    // Create new PlaceNode
+    osgEarth::PlaceNode* node = new osgEarth::PlaceNode();
+    node->setPosition(osgEarth::GeoPoint(
+        osgEarth::SpatialReference::get("wgs84"),
+        entity.lon, entity.lat, entity.alt));
+    node->setText(entity.callsign.toStdString());
+
+    if (!entity.icon.isNull()) {
+        node->setIconImage(qImageToOsgImage(entity.icon));
+    }
+
+    m_annotationLayer->addChild(node);
+    m_entities.insert(entity.uid, node);
+}
+
+void OsgEarthMapWidget::removeEntity(const QString& uid)
+{
+    m_staleTimes.remove(uid);
+    auto it = m_entities.find(uid);
+    if (it != m_entities.end()) {
+        m_annotationLayer->getGroup()->removeChild(it.value().get());
+        m_entities.erase(it);
+    }
+}
+
+void OsgEarthMapWidget::clearEntities()
+{
+    for (auto it = m_entities.begin(); it != m_entities.end(); ++it) {
+        m_annotationLayer->getGroup()->removeChild(it.value().get());
+    }
+    m_entities.clear();
+    m_staleTimes.clear();
+}
+
+void OsgEarthMapWidget::staleCheck()
+{
+    if (m_staleTimes.isEmpty()) return;
+    QDateTime now = QDateTime::currentDateTimeUtc();
+    QStringList stale;
+    for (auto it = m_staleTimes.begin(); it != m_staleTimes.end(); ++it) {
+        if (it.value().isValid() && now >= it.value()) {
+            stale.append(it.key());
+        }
+    }
+    for (const QString& uid : stale) {
+        removeEntity(uid);
+    }
 }
 
 void OsgEarthMapWidget::initializeGL()
@@ -128,6 +217,16 @@ void OsgEarthMapWidget::setupMap()
         return;
     }
 
+
+    // Create annotation layer for tactical entities
+    m_annotationLayer = new osgEarth::AnnotationLayer();
+    m_annotationLayer->setName("TacticalEntities");
+    m_map->addLayer(m_annotationLayer);
+
+    // Start stale-check timer (every 5 seconds)
+    m_staleTimer = new QTimer(this);
+    connect(m_staleTimer, &QTimer::timeout, this, &OsgEarthMapWidget::staleCheck);
+    m_staleTimer->start(5000);
     m_viewer->setSceneData(m_mapNode);
 }
 

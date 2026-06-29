@@ -95,6 +95,8 @@ if(osgEarth_FOUND)
         osgearthmapwidget.cpp
         osgearthbasemapdock.h
         osgearthbasemapdock.cpp
+        iconsetresolver.h
+        iconsetresolver.cpp
     )
 
     target_link_libraries(osgearthplugin

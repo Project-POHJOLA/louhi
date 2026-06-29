@@ -6,13 +6,29 @@
 #include <QWheelEvent>
 #include <QTimer>
 #include <QList>
+#include <QMap>
+#include <QImage>
+#include <QDateTime>
 #include "mapsources.h"
 
 #include <osg/ref_ptr>
 #include <osgViewer/Viewer>
 #include <osgEarth/MapNode>
 #include <osgEarth/Map>
+#include <osgEarth/AnnotationLayer>
+#include <osgEarth/PlaceNode>
 
+struct MapEntity {
+    QString uid;
+    double lat = 0.0;
+    double lon = 0.0;
+    double alt = 0.0;
+    QString callsign;
+    QString cotType;
+    QString iconsetPath;
+    QImage icon;
+    QDateTime staleTime;
+};
 class OsgEarthMapWidget : public QOpenGLWidget
 {
     Q_OBJECT
@@ -23,6 +39,10 @@ public:
 
     void setCenter(double lat, double lon);
     void setZoom(int zoom);
+
+    void addOrUpdateEntity(const MapEntity& entity);
+    void removeEntity(const QString& uid);
+    void clearEntities();
     double latitude() const { return m_centerLat; }
     double longitude() const { return m_centerLon; }
     int zoom() const { return m_zoom; }
@@ -54,6 +74,12 @@ private:
 
     osg::ref_ptr<osgViewer::Viewer> m_viewer;
     osg::ref_ptr<osgEarth::MapNode> m_mapNode;
+    void staleCheck();
+
+    osg::ref_ptr<osgEarth::AnnotationLayer> m_annotationLayer;
+    QMap<QString, osg::ref_ptr<osgEarth::PlaceNode>> m_entities;
+    QMap<QString, QDateTime> m_staleTimes;
+    QTimer* m_staleTimer;
     osg::ref_ptr<osgEarth::Map> m_map;
 
     double m_centerLat;
