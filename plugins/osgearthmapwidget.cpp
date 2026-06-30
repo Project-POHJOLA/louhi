@@ -399,7 +399,14 @@ void OsgEarthMapWidget::setupMap()
             auto it = widget->m_objectIdToEntity.constFind(id);
             if (it != widget->m_objectIdToEntity.constEnd()) {
                 qDebug() << "IconClick: matched uid" << it.value();
-                widget->handleIconClick(it.value());
+                // Defer to Qt event loop — onHit fires from within osgEarth's
+                // frame processing (inside paintGL), and Qt widget ops are not
+                // safe to call there.
+                QString uid = it.value();
+                auto* w = this->widget;
+                QMetaObject::invokeMethod(w, [w, uid]() {
+                    w->handleIconClick(uid);
+                }, Qt::QueuedConnection);
             } else {
                 qDebug() << "IconClick: no entity for ObjectID" << id;
             }
