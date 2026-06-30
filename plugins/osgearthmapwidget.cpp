@@ -361,17 +361,15 @@ void OsgEarthMapWidget::setupMap()
     m_entityRoot = new osg::Group();
     m_entityRoot->setName("TacticalEntities");
     m_mapNode->addChild(m_entityRoot);
-    qDebug() << "setupMap: entity group created";
 
     // Start stale-check timer (every 5 seconds)
     m_staleTimer = new QTimer(this);
     connect(m_staleTimer, &QTimer::timeout, this, &OsgEarthMapWidget::staleCheck);
     m_staleTimer->start(5000);
-    qDebug() << "setupMap: timer created";
-
 
     m_picker = new osgEarth::Util::RTTPicker();
     m_picker->addChild(m_mapNode);
+
     struct PickCallback : public osgEarth::Picker::Callback
     {
         OsgEarthMapWidget* widget;
@@ -390,7 +388,6 @@ void OsgEarthMapWidget::setupMap()
             if (ea.getEventType() == osgGA::GUIEventAdapter::RELEASE) {
                 if (!m_pressed) return false;
                 m_pressed = false;
-                // Only accept clicks (no significant movement)
                 float dx = ea.getX() - m_pressX;
                 float dy = ea.getY() - m_pressY;
                 bool isClick = (dx * dx + dy * dy) <= 16.0f;
@@ -412,9 +409,6 @@ void OsgEarthMapWidget::setupMap()
             auto it = widget->m_objectIdToEntity.constFind(id);
             if (it != widget->m_objectIdToEntity.constEnd()) {
                 qDebug() << "IconClick: matched uid" << it.value();
-                // Defer to Qt event loop — onHit fires from within osgEarth's
-                // frame processing (inside paintGL), and Qt widget ops are not
-                // safe to call there.
                 QString uid = it.value();
                 auto* w = this->widget;
                 QMetaObject::invokeMethod(w, [w, uid]() {
@@ -430,20 +424,12 @@ void OsgEarthMapWidget::setupMap()
             qDebug() << "IconClick: MISS";
         }
     };
-    qDebug() << "setupMap: callback struct defined";
 
-    qDebug() << "setupMap: before new PickCallback";
     auto* cb = new PickCallback;
-    qDebug() << "setupMap: after new PickCallback";
     cb->widget = this;
-    qDebug() << "setupMap: after widget assignment" << "picker addr:" << (void*)m_picker.get();
     m_picker->setDefaultCallback(cb);
-    qDebug() << "setupMap: after setDefaultCallback";
     m_viewer->addEventHandler(m_picker.get());
-    qDebug() << "setupMap: after addEventHandler";
-    qDebug() << "setupMap: picker configured";
     m_viewer->setSceneData(m_mapNode);
-    qDebug() << "setupMap: setSceneData done";
 }
 
 void OsgEarthMapWidget::rebuildMapLayer()
