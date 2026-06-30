@@ -372,14 +372,25 @@ void OsgEarthMapWidget::setupMap()
         bool accept(const osgGA::GUIEventAdapter& ea,
                     const osgGA::GUIActionAdapter&) override
         {
-            return ea.getEventType() == osgGA::GUIEventAdapter::RELEASE;
+            return ea.getEventType() == osgGA::GUIEventAdapter::RELEASE
+                && ea.getButton() == osgGA::GUIEventAdapter::LEFT_MOUSE_BUTTON;
         }
 
         void onHit(osgEarth::ObjectID id) override
         {
+            qDebug() << "IconClick: ObjectID" << id;
             auto it = widget->m_objectIdToEntity.constFind(id);
-            if (it != widget->m_objectIdToEntity.constEnd())
+            if (it != widget->m_objectIdToEntity.constEnd()) {
+                qDebug() << "IconClick: matched uid" << it.value();
                 widget->handleIconClick(it.value());
+            } else {
+                qDebug() << "IconClick: no entity for ObjectID" << id;
+            }
+        }
+
+        void onMiss() override
+        {
+            qDebug() << "IconClick: miss";
         }
     };
 
