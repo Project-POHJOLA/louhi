@@ -8,8 +8,6 @@
 #include <osg/GL>
 #include <QTimer>
 
-#include <osgUtil/LineSegmentIntersector>
-#include <osgUtil/IntersectionVisitor>
 #include <osg/Notify>
 #include <osg/Geode>
 #include <osg/ShapeDrawable>
@@ -480,7 +478,7 @@ void OsgEarthMapWidget::mousePressEvent(QMouseEvent* event)
             if (event->button() == Qt::LeftButton) button = 1;
             else if (event->button() == Qt::MiddleButton) button = 2;
             else if (event->button() == Qt::RightButton) button = 3;
-            eq->mouseButtonPress(event->x(), event->y(), button);
+            eq->mouseButtonPress(qRound(event->position().x()), qRound(event->position().y()), button);
         }
     }
     event->accept();
@@ -491,7 +489,7 @@ void OsgEarthMapWidget::mouseMoveEvent(QMouseEvent* event)
     if (m_viewer.valid()) {
         osgGA::EventQueue* eq = m_viewer->getEventQueue();
         if (eq) {
-            eq->mouseMotion(event->x(), event->y());
+            eq->mouseMotion(qRound(event->position().x()), qRound(event->position().y()));
         }
     }
     update();
@@ -508,12 +506,12 @@ void OsgEarthMapWidget::mouseReleaseEvent(QMouseEvent* event)
             if (event->button() == Qt::LeftButton) button = 1;
             else if (event->button() == Qt::MiddleButton) button = 2;
             else if (event->button() == Qt::RightButton) button = 3;
-            eq->mouseButtonRelease(event->x(), event->y(), button);
+            eq->mouseButtonRelease(qRound(event->position().x()), qRound(event->position().y()), button);
         }
 
         // Pick entities on left-click
         if (event->button() == Qt::LeftButton && event->type() == QEvent::MouseButtonRelease) {
-            pickEntity(event->x(), event->y());
+            pickEntity(qRound(event->position().x()), qRound(event->position().y()));
         }
 
         osgEarth::Util::EarthManipulator* manip =
@@ -536,33 +534,57 @@ void OsgEarthMapWidget::pickEntity(int x, int y)
     if (!m_viewer.valid() || !m_viewer->getCamera())
         return;
 
-    // Convert Qt widget coords to osg window coords (Y flipped)
-    double vx = static_cast<double>(x);
-    double vy = static_cast<double>(height() - y);
+    osg::Camera* camera = m_viewer->getCamera();
+    osg::Viewport* vp = camera->getViewport();
+    if (!vp) return;
 
-    osg::ref_ptr<osgUtil::LineSegmentIntersector> intersector =
-        new osgUtil::LineSegmentIntersector(
-            osgUtil::Intersector::WINDOW, vx, vy);
-    osgUtil::IntersectionVisitor iv(intersector.get());
-    m_viewer->getCamera()->accept(iv);
+    // osg window coords have Y origin at bottom; Qt has Y at top
+    double clickY = static_cast<double>(height() - y);
 
-    if (!intersector->containsIntersections())
-        return;
+    // Composite view→projection matrix (constant for all entities)
+    osg::Matrixd viewProj = camera->getViewMatrix()
+                          * camera->getProjectionMatrix();
 
-    const auto& hits = intersector->getIntersections();
-    for (const auto& hit : hits) {
-        // Walk node path from leaf back to root to find a PlaceNode match
-        for (auto nodeIt = hit.nodePath.rbegin(); nodeIt != hit.nodePath.rend(); ++nodeIt) {
-            osg::Node* node = *nodeIt;
-            if (!node) continue;
-            for (auto entIt = m_entities.constBegin(); entIt != m_entities.constEnd(); ++entIt) {
-                if (entIt.value() == node) {
-                    emit entityClicked(entIt.key());
-                    return;
-                }
-            }
+    double vpW = vp->width();
+    double vpH = vp->height();
+    double vpX = vp->x();
+    double vpY = vp->y();
+
+    // Threshold in pixels — matches typical icon touch target
+    const double threshold = 20.0;
+    QString closestUid;
+    double closestDist = threshold;
+
+    for (auto entIt = m_entities.constBegin();
+         entIt != m_entities.constEnd(); ++entIt)
+    {
+        osgEarth::PlaceNode* node = entIt.value().get();
+        if (!node) continue;
+
+        // Convert PlaceNode lat/lon/alt to ECEF world coordinates
+        osg::Vec3d world;
+        node->getPosition().toWorld(world);
+
+        // World → clip space
+        osg::Vec3d clip = world * viewProj;
+        if (clip.z() <= 0.0) continue;   // behind the camera
+
+        // Clip → NDC → window coordinates
+        double sx = ((clip.x() / clip.z()) + 1.0) * vpW / 2.0 + vpX;
+        double sy = ((clip.y() / clip.z()) + 1.0) * vpH / 2.0 + vpY;
+
+        double dx = sx - static_cast<double>(x);
+        double dy = sy - clickY;
+        double dist = qSqrt(dx * dx + dy * dy);
+
+        if (dist < closestDist) {
+            closestDist = dist;
+            closestUid = entIt.key();
         }
     }
+
+    if (!closestUid.isEmpty())
+        emit entityClicked(closestUid);
 }
 
 void OsgEarthMapWidget::wheelEvent(QWheelEvent* event)

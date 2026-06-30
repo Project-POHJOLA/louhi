@@ -60,10 +60,10 @@ public:
 
     QList<MapSource> customSources() const { return m_customSources; }
     void setCustomSources(const QList<MapSource>& sources);
-    void entityClicked(const QString& uid);
     static QImage tintIcon(const QImage& icon, QRgb argb);
 
 signals:
+    void entityClicked(const QString& uid);
     void centerChanged(double lat, double lon);
     void zoomChanged(int zoom);
     void sourceChanged(const QString& sourceName);
