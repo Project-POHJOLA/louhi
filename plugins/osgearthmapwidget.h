@@ -16,7 +16,6 @@
 #include <osgViewer/Viewer>
 #include <osgEarth/MapNode>
 #include <osgEarth/Map>
-#include <osgEarth/AnnotationLayer>
 #include <osgEarth/ScreenSpaceLayout>
 #include <osgEarth/PlaceNode>
 #include <osgEarth/RTTPicker>
@@ -93,7 +92,7 @@ private:
     osg::ref_ptr<osgEarth::MapNode> m_mapNode;
     void staleCheck();
 
-    osg::ref_ptr<osgEarth::AnnotationLayer> m_annotationLayer;
+    osg::ref_ptr<osg::Group> m_entityRoot;
     QMap<QString, osg::ref_ptr<osgEarth::PlaceNode>> m_entities;
     QMap<QString, QDateTime> m_staleTimes;
     QMap<QString, osg::ref_ptr<osg::Image>> m_cachedOsgIcons;

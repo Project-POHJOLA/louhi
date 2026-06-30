@@ -155,7 +155,7 @@ static osgEarth::GeoPoint entityPosition(const MapEntity& entity)
 
 void OsgEarthMapWidget::addOrUpdateEntity(const MapEntity& entity)
 {
-    if (!m_mapInitialized || !m_annotationLayer.valid())
+    if (!m_mapInitialized || !m_entityRoot.valid())
         return;
 
     // Track stale time even for updates
@@ -202,7 +202,7 @@ void OsgEarthMapWidget::addOrUpdateEntity(const MapEntity& entity)
     osgEarth::Registry::objectIndex()->tagNode(node, oid);
     m_objectIdToEntity[oid] = entity.uid;
     m_entities[entity.uid] = node;
-    m_annotationLayer->addChild(node);
+    m_entityRoot->addChild(node);
     qDebug() << "IconClick: tagged uid" << entity.uid << "ObjectID" << oid
              << "total entities" << m_entities.size()
              << "total OIDs" << m_objectIdToEntity.size();
@@ -212,7 +212,7 @@ void OsgEarthMapWidget::addOrUpdateEntity(const MapEntity& entity)
 void OsgEarthMapWidget::clearEntities()
 {
     for (auto it = m_entities.begin(); it != m_entities.end(); ++it) {
-        m_annotationLayer->getGroup()->removeChild(it.value().get());
+        m_entityRoot->removeChild(it.value().get());
     }
     m_entities.clear();
     m_objectIdToEntity.clear();
@@ -236,7 +236,7 @@ void OsgEarthMapWidget::removeEntity(const QString& uid)
 
     auto it = m_entities.find(uid);
     if (it != m_entities.end()) {
-        m_annotationLayer->getGroup()->removeChild(it.value().get());
+        m_entityRoot->removeChild(it.value().get());
         m_entities.erase(it);
     }
 }
@@ -354,19 +354,18 @@ void OsgEarthMapWidget::setupMap()
     }
 
 
-    // Create annotation layer for tactical entities
-    m_annotationLayer = new osgEarth::AnnotationLayer();
-    m_annotationLayer->setName("TacticalEntities");
-    // Apply decluttering preference
-    osgEarth::ScreenSpaceLayout::setDeclutteringEnabled(m_declutteringEnabled);
-    m_map->addLayer(m_annotationLayer);
+    // Create a world-space group for entity PlaceNodes.
+    // NOT using AnnotationLayer — ScreenSpaceLayout positions annotations
+    // differently in the RTTPicker's RTT viewport vs the display viewport,
+    // causing the GPU picker to find the wrong entity under the cursor.
+    m_entityRoot = new osg::Group();
+    m_entityRoot->setName("TacticalEntities");
+    m_mapNode->addChild(m_entityRoot);
 
     // Start stale-check timer (every 5 seconds)
-    // Install GPU-based RTTPicker for icon clicks.
-    // Uses ObjectID color-coded rendering — works at any scale,
-    // catches all annotations regardless of screen-space layout.
-    m_picker = new osgEarth::Util::RTTPicker();
-    m_picker->addChild(m_mapNode);
+    m_staleTimer = new QTimer(this);
+    connect(m_staleTimer, &QTimer::timeout, this, &OsgEarthMapWidget::staleCheck);
+    m_staleTimer->start(5000);
 
     struct PickCallback : public osgEarth::Picker::Callback
     {
