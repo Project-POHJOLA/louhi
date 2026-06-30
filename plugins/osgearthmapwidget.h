@@ -9,6 +9,7 @@
 #include <QMap>
 #include <QImage>
 #include <QDateTime>
+#include <functional>
 #include "mapsources.h"
 
 #include <osg/ref_ptr>
@@ -33,6 +34,25 @@ struct MapEntity {
     QRgb colorArgb = 0;       // 0 = unset (no tint)
     QString detailXml;        // raw CoT <detail> XML for info widget
 };
+class OsgEarthMapWidget;
+
+// osgGA event handler: picks PlaceNode annotations on mouse release.
+// Registered directly on the viewer so coordinates are in osg's system.
+class IconClickHandler : public osgGA::GUIEventHandler
+{
+public:
+    using Callback = std::function<void(osgEarth::PlaceNode*)>;
+
+    IconClickHandler(osgViewer::Viewer* viewer, Callback onClick)
+        : m_viewer(viewer), m_onClick(std::move(onClick)) {}
+
+    bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa) override;
+
+private:
+    osgViewer::Viewer* m_viewer;
+    Callback m_onClick;
+};
+
 class OsgEarthMapWidget : public QOpenGLWidget
 {
     Q_OBJECT
@@ -61,6 +81,8 @@ public:
     QList<MapSource> customSources() const { return m_customSources; }
     void setCustomSources(const QList<MapSource>& sources);
     static QImage tintIcon(const QImage& icon, QRgb argb);
+    // Called by IconClickHandler when a PlaceNode is picked
+    void handleIconClick(const QString& uid) { emit entityClicked(uid); }
 
 signals:
     void entityClicked(const QString& uid);
@@ -76,7 +98,6 @@ protected:
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
-    void pickEntity(int x, int y);
 
 private:
     void setupMap();

@@ -27,6 +27,7 @@
 #include <osgEarth/Profile>
 #include <osgEarth/EarthManipulator>
 #include <osgEarth/XYZ>
+#include <osgEarth/IntersectionPicker>
 #include <osgEarth/WMS>
 
 #include <osgViewer/GraphicsWindow>
@@ -308,6 +309,33 @@ void OsgEarthMapWidget::initializeGL()
     updateCamera();
 }
 
+// ── IconClickHandler ──
+
+bool IconClickHandler::handle(const osgGA::GUIEventAdapter& ea,
+                               osgGA::GUIActionAdapter& aa)
+{
+    if (ea.getEventType() != osgGA::GUIEventAdapter::RELEASE)
+        return false;
+
+    // Use IntersectionPicker to find annotations under the cursor.
+    // LIMIT_ONE_PER_DRAWABLE catches both terrain and annotation hits.
+    osgEarth::IntersectionPicker picker(m_viewer, nullptr, ~0u, 8.0f,
+        osgEarth::IntersectionPicker::LIMIT_ONE_PER_DRAWABLE);
+
+    osgEarth::IntersectionPicker::Hits hits;
+    if (!picker.pick(ea.getX(), ea.getY(), hits))
+        return false;
+
+    for (const auto& hit : hits) {
+        osgEarth::PlaceNode* node = picker.getNode<osgEarth::PlaceNode>(hit);
+        if (node) {
+            m_onClick(node);
+            return true;
+        }
+    }
+    return false;
+}
+
 void OsgEarthMapWidget::setupMap()
 {
     m_map = new osgEarth::Map();
@@ -346,6 +374,17 @@ void OsgEarthMapWidget::setupMap()
     m_staleTimer = new QTimer(this);
     connect(m_staleTimer, &QTimer::timeout, this, &OsgEarthMapWidget::staleCheck);
     m_staleTimer->start(5000);
+
+    // Install icon-click handler (osgGA event handler, not Qt)
+    m_viewer->addEventHandler(new IconClickHandler(m_viewer.get(),
+        [this](osgEarth::PlaceNode* node) {
+            for (auto it = m_entities.constBegin(); it != m_entities.constEnd(); ++it) {
+                if (it.value().get() == node) {
+                    handleIconClick(it.key());
+                    return;
+                }
+            }
+        }));
     m_viewer->setSceneData(m_mapNode);
 }
 
@@ -511,10 +550,6 @@ void OsgEarthMapWidget::mouseReleaseEvent(QMouseEvent* event)
             eq->mouseButtonRelease(qRound(event->position().x()), qRound(event->position().y()), button);
         }
 
-        // Pick entities on left-click
-        if (event->button() == Qt::LeftButton && event->type() == QEvent::MouseButtonRelease) {
-            pickEntity(qRound(event->position().x()), qRound(event->position().y()));
-        }
 
         osgEarth::Util::EarthManipulator* manip =
             dynamic_cast<osgEarth::Util::EarthManipulator*>(m_viewer->getCameraManipulator());
@@ -529,47 +564,6 @@ void OsgEarthMapWidget::mouseReleaseEvent(QMouseEvent* event)
     }
     update();
     event->accept();
-}
-
-void OsgEarthMapWidget::pickEntity(int x, int y)
-{
-    if (!m_viewer.valid() || !m_viewer->getCamera() || !m_mapNode.valid())
-        return;
-
-    // Intersect terrain under the cursor to get ECEF world point
-    double vx = static_cast<double>(x);
-    double vy = static_cast<double>(height() - y);
-    osg::ref_ptr<osgUtil::LineSegmentIntersector> intersector =
-        new osgUtil::LineSegmentIntersector(
-            osgUtil::Intersector::WINDOW, vx, vy);
-    osgUtil::IntersectionVisitor iv(intersector.get());
-    m_viewer->getCamera()->accept(iv);
-    if (!intersector->containsIntersections())
-        return;
-
-    // Convert ECEF → lat/lon via map SRS
-    osgEarth::GeoPoint geo;
-    geo.fromWorld(m_mapNode->getMapSRS(),
-                  intersector->getFirstIntersection().getWorldIntersectPoint());
-
-    // Scan m_entities for the nearest by great-circle distance
-    QString closest;
-    double closestDeg = 0.5;
-    for (auto it = m_entities.constBegin(); it != m_entities.constEnd(); ++it) {
-        osgEarth::GeoPoint pos = it.value()->getPosition();
-        double dlat = qAbs(pos.y() - geo.y());
-        double dlon = qAbs(pos.x() - geo.x());
-        if (dlon > 180.0) dlon = 360.0 - dlon;
-        double degDist = qSqrt(dlat * dlat + dlon * dlon);
-        if (degDist < closestDeg) {
-            closestDeg = degDist;
-            closest = it.key();
-        }
-    }
-
-    // Accept ≈100m at equator (~0.001°)
-    if (!closest.isEmpty() && closestDeg < 0.001)
-        emit entityClicked(closest);
 }
 
 void OsgEarthMapWidget::wheelEvent(QWheelEvent* event)
