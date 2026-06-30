@@ -22,6 +22,7 @@
 #include <osgEarth/ElevationLayer>
 #include <osgEarth/TerrainOptions>
 #include <osgEarth/Viewpoint>
+#include <osgEarth/IntersectionPicker>
 #include <osgEarth/Profile>
 #include <osgEarth/EarthManipulator>
 #include <osgEarth/XYZ>
@@ -531,64 +532,35 @@ void OsgEarthMapWidget::mouseReleaseEvent(QMouseEvent* event)
 
 void OsgEarthMapWidget::pickEntity(int x, int y)
 {
-    if (!m_viewer.valid() || !m_viewer->getCamera())
+    if (!m_viewer.valid())
         return;
 
-    osg::Camera* camera = m_viewer->getCamera();
-    osg::Viewport* vp = camera->getViewport();
-    if (!vp) return;
+    // Restrict picking to the annotation subgraph (skip terrain/other geometry)
+    osg::Node* graph = m_annotationLayer->getGroup();
+    if (!graph) return;
 
-    // osg window coords have Y origin at bottom; Qt has Y at top
-    double clickY = static_cast<double>(height() - y);
+    // osg window coords: Y=0 at bottom; Qt Y=0 at top
+    float mx = static_cast<float>(x);
+    float my = static_cast<float>(height() - y);
 
-    // Composite view→projection matrix (constant for all entities)
-    osg::Matrixd viewProj = camera->getViewMatrix()
-                          * camera->getProjectionMatrix();
+    osgEarth::IntersectionPicker picker(m_viewer.get(), graph, ~0u, 8.0f);
+    osgEarth::IntersectionPicker::Hits hits;
+    if (!picker.pick(mx, my, hits))
+        return;
 
-    double vpW = vp->width();
-    double vpH = vp->height();
-    double vpX = vp->x();
-    double vpY = vp->y();
-
-    // Threshold in pixels — matches typical icon touch target
-    const double threshold = 20.0;
-    QString closestUid;
-    double closestDist = threshold;
-
-    for (auto entIt = m_entities.constBegin();
-         entIt != m_entities.constEnd(); ++entIt)
-    {
-        osgEarth::PlaceNode* node = entIt.value().get();
+    for (const auto& hit : hits) {
+        // Walk the hit's nodePath to find the parent PlaceNode
+        osgEarth::PlaceNode* node = picker.getNode<osgEarth::PlaceNode>(hit);
         if (!node) continue;
 
-        // Get position and convert to absolute mode before toWorld
-        // (relative-to-terrain altitudes can't be converted to ECEF directly)
-        osgEarth::GeoPoint pos = node->getPosition();
-        osgEarth::GeoPoint absPoint(pos.getSRS(), pos.x(), pos.y(), pos.z(),
-                                     osgEarth::ALTMODE_ABSOLUTE);
-        osg::Vec3d world;
-        absPoint.toWorld(world);
-
-        // World → clip space
-        osg::Vec3d clip = world * viewProj;
-        if (clip.z() <= 0.0) continue;   // behind the camera
-
-        // Clip → NDC → window coordinates
-        double sx = ((clip.x() / clip.z()) + 1.0) * vpW / 2.0 + vpX;
-        double sy = ((clip.y() / clip.z()) + 1.0) * vpH / 2.0 + vpY;
-
-        double dx = sx - static_cast<double>(x);
-        double dy = sy - clickY;
-        double dist = qSqrt(dx * dx + dy * dy);
-
-        if (dist < closestDist) {
-            closestDist = dist;
-            closestUid = entIt.key();
+        // Match PlaceNode pointer against our entity map
+        for (auto it = m_entities.constBegin(); it != m_entities.constEnd(); ++it) {
+            if (it.value().get() == node) {
+                emit entityClicked(it.key());
+                return;
+            }
         }
     }
-
-    if (!closestUid.isEmpty())
-        emit entityClicked(closestUid);
 }
 
 void OsgEarthMapWidget::wheelEvent(QWheelEvent* event)
