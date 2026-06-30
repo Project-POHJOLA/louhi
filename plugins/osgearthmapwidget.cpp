@@ -197,6 +197,10 @@ void OsgEarthMapWidget::addOrUpdateEntity(const MapEntity& entity)
         m_cachedOsgIcons[entity.uid] = img;
         node->setIconImage(img);
     }
+    // Tag the PlaceNode with an ObjectID for GPU-based picking
+    osgEarth::ObjectID oid = osgEarth::Registry::objectIndex()->insert(node);
+    osgEarth::Registry::objectIndex()->tagNode(node, oid);
+    m_objectIdToEntity[oid] = entity.uid;
     m_entities[entity.uid] = node;
     m_annotationLayer->addChild(node);
 
@@ -208,6 +212,7 @@ void OsgEarthMapWidget::clearEntities()
         m_annotationLayer->getGroup()->removeChild(it.value().get());
     }
     m_entities.clear();
+    m_objectIdToEntity.clear();
     m_staleTimes.clear();
     m_entityIcons.clear();
     m_cachedOsgIcons.clear();
@@ -217,6 +222,15 @@ void OsgEarthMapWidget::removeEntity(const QString& uid)
     m_cachedOsgIcons.remove(uid);
     m_staleTimes.remove(uid);
     m_entityIcons.remove(uid);
+
+    // Remove ObjectID mapping for this uid
+    for (auto oit = m_objectIdToEntity.begin(); oit != m_objectIdToEntity.end(); ) {
+        if (oit.value() == uid)
+            oit = m_objectIdToEntity.erase(oit);
+        else
+            ++oit;
+    }
+
     auto it = m_entities.find(uid);
     if (it != m_entities.end()) {
         m_annotationLayer->getGroup()->removeChild(it.value().get());
@@ -309,32 +323,6 @@ void OsgEarthMapWidget::initializeGL()
     updateCamera();
 }
 
-// ── IconClickHandler ──
-
-bool IconClickHandler::handle(const osgGA::GUIEventAdapter& ea,
-                               osgGA::GUIActionAdapter& aa)
-{
-    if (ea.getEventType() != osgGA::GUIEventAdapter::RELEASE)
-        return false;
-
-    // Use IntersectionPicker to find annotations under the cursor.
-    // LIMIT_ONE_PER_DRAWABLE catches both terrain and annotation hits.
-    osgEarth::IntersectionPicker picker(m_viewer, nullptr, ~0u, 8.0f,
-        osgEarth::IntersectionPicker::LIMIT_ONE_PER_DRAWABLE);
-
-    osgEarth::IntersectionPicker::Hits hits;
-    if (!picker.pick(ea.getX(), ea.getY(), hits))
-        return false;
-
-    for (const auto& hit : hits) {
-        osgEarth::PlaceNode* node = picker.getNode<osgEarth::PlaceNode>(hit);
-        if (node) {
-            m_onClick(node);
-            return true;
-        }
-    }
-    return false;
-}
 
 void OsgEarthMapWidget::setupMap()
 {
@@ -371,20 +359,34 @@ void OsgEarthMapWidget::setupMap()
     m_map->addLayer(m_annotationLayer);
 
     // Start stale-check timer (every 5 seconds)
-    m_staleTimer = new QTimer(this);
-    connect(m_staleTimer, &QTimer::timeout, this, &OsgEarthMapWidget::staleCheck);
-    m_staleTimer->start(5000);
+    // Install GPU-based RTTPicker for icon clicks.
+    // Uses ObjectID color-coded rendering — works at any scale,
+    // catches all annotations regardless of screen-space layout.
+    m_picker = new osgEarth::Util::RTTPicker();
+    m_picker->addChild(m_mapNode);
 
-    // Install icon-click handler (osgGA event handler, not Qt)
-    m_viewer->addEventHandler(new IconClickHandler(m_viewer.get(),
-        [this](osgEarth::PlaceNode* node) {
-            for (auto it = m_entities.constBegin(); it != m_entities.constEnd(); ++it) {
-                if (it.value().get() == node) {
-                    handleIconClick(it.key());
-                    return;
-                }
-            }
-        }));
+    struct PickCallback : public osgEarth::Picker::Callback
+    {
+        OsgEarthMapWidget* widget;
+
+        bool accept(const osgGA::GUIEventAdapter& ea,
+                    const osgGA::GUIActionAdapter&) override
+        {
+            return ea.getEventType() == osgGA::GUIEventAdapter::RELEASE;
+        }
+
+        void onHit(osgEarth::ObjectID id) override
+        {
+            auto it = widget->m_objectIdToEntity.constFind(id);
+            if (it != widget->m_objectIdToEntity.constEnd())
+                widget->handleIconClick(it.value());
+        }
+    };
+
+    auto* cb = new PickCallback;
+    cb->widget = this;
+    m_picker->setDefaultCallback(cb);
+    m_viewer->addEventHandler(m_picker.get());
     m_viewer->setSceneData(m_mapNode);
 }
 
