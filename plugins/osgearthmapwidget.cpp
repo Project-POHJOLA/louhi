@@ -7,6 +7,8 @@
 #include <cstring>
 #include <osg/GL>
 #include <QTimer>
+#include <osgUtil/LineSegmentIntersector>
+#include <osgUtil/IntersectionVisitor>
 
 #include <osg/Notify>
 #include <osg/Geode>
@@ -22,7 +24,6 @@
 #include <osgEarth/ElevationLayer>
 #include <osgEarth/TerrainOptions>
 #include <osgEarth/Viewpoint>
-#include <osgEarth/IntersectionPicker>
 #include <osgEarth/Profile>
 #include <osgEarth/EarthManipulator>
 #include <osgEarth/XYZ>
@@ -532,35 +533,43 @@ void OsgEarthMapWidget::mouseReleaseEvent(QMouseEvent* event)
 
 void OsgEarthMapWidget::pickEntity(int x, int y)
 {
-    if (!m_viewer.valid())
+    if (!m_viewer.valid() || !m_viewer->getCamera() || !m_mapNode.valid())
         return;
 
-    // Restrict picking to the annotation subgraph (skip terrain/other geometry)
-    osg::Node* graph = m_annotationLayer->getGroup();
-    if (!graph) return;
-
-    // osg window coords: Y=0 at bottom; Qt Y=0 at top
-    float mx = static_cast<float>(x);
-    float my = static_cast<float>(height() - y);
-
-    osgEarth::IntersectionPicker picker(m_viewer.get(), graph, ~0u, 8.0f);
-    osgEarth::IntersectionPicker::Hits hits;
-    if (!picker.pick(mx, my, hits))
+    // Intersect terrain under the cursor to get ECEF world point
+    double vx = static_cast<double>(x);
+    double vy = static_cast<double>(height() - y);
+    osg::ref_ptr<osgUtil::LineSegmentIntersector> intersector =
+        new osgUtil::LineSegmentIntersector(
+            osgUtil::Intersector::WINDOW, vx, vy);
+    osgUtil::IntersectionVisitor iv(intersector.get());
+    m_viewer->getCamera()->accept(iv);
+    if (!intersector->containsIntersections())
         return;
 
-    for (const auto& hit : hits) {
-        // Walk the hit's nodePath to find the parent PlaceNode
-        osgEarth::PlaceNode* node = picker.getNode<osgEarth::PlaceNode>(hit);
-        if (!node) continue;
+    // Convert ECEF → lat/lon via map SRS
+    osgEarth::GeoPoint geo;
+    geo.fromWorld(m_mapNode->getMapSRS(),
+                  intersector->getFirstIntersection().getWorldIntersectPoint());
 
-        // Match PlaceNode pointer against our entity map
-        for (auto it = m_entities.constBegin(); it != m_entities.constEnd(); ++it) {
-            if (it.value().get() == node) {
-                emit entityClicked(it.key());
-                return;
-            }
+    // Scan m_entities for the nearest by great-circle distance
+    QString closest;
+    double closestDeg = 0.5;
+    for (auto it = m_entities.constBegin(); it != m_entities.constEnd(); ++it) {
+        osgEarth::GeoPoint pos = it.value()->getPosition();
+        double dlat = qAbs(pos.y() - geo.y());
+        double dlon = qAbs(pos.x() - geo.x());
+        if (dlon > 180.0) dlon = 360.0 - dlon;
+        double degDist = qSqrt(dlat * dlat + dlon * dlon);
+        if (degDist < closestDeg) {
+            closestDeg = degDist;
+            closest = it.key();
         }
     }
+
+    // Accept ≈100m at equator (~0.001°)
+    if (!closest.isEmpty() && closestDeg < 0.001)
+        emit entityClicked(closest);
 }
 
 void OsgEarthMapWidget::wheelEvent(QWheelEvent* event)
