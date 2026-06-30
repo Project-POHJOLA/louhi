@@ -429,10 +429,15 @@ void OsgEarthMapWidget::setupMap()
     };
     qDebug() << "setupMap: callback struct defined";
 
+qDebug() << "setupMap: before new PickCallback";
     auto* cb = new PickCallback;
+qDebug() << "setupMap: after new PickCallback";
     cb->widget = this;
+qDebug() << "setupMap: after widget assignment";
     m_picker->setDefaultCallback(cb);
+qDebug() << "setupMap: after setDefaultCallback";
     m_viewer->addEventHandler(m_picker.get());
+qDebug() << "setupMap: after addEventHandler";
     qDebug() << "setupMap: picker configured";
     m_viewer->setSceneData(m_mapNode);
     qDebug() << "setupMap: setSceneData done";
