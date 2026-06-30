@@ -561,9 +561,13 @@ void OsgEarthMapWidget::pickEntity(int x, int y)
         osgEarth::PlaceNode* node = entIt.value().get();
         if (!node) continue;
 
-        // Convert PlaceNode lat/lon/alt to ECEF world coordinates
+        // Get position and convert to absolute mode before toWorld
+        // (relative-to-terrain altitudes can't be converted to ECEF directly)
+        osgEarth::GeoPoint pos = node->getPosition();
+        osgEarth::GeoPoint absPoint(pos.getSRS(), pos.x(), pos.y(), pos.z(),
+                                     osgEarth::ALTMODE_ABSOLUTE);
         osg::Vec3d world;
-        node->getPosition().toWorld(world);
+        absPoint.toWorld(world);
 
         // World → clip space
         osg::Vec3d clip = world * viewProj;
