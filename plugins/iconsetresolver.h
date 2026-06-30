@@ -35,6 +35,8 @@ public:
                        const QString& milsymId = QString(),
                        const QString& callsign = QString(),
                        const QString& uid = QString()) const;
+    // Find iconset index matching the given uid (from CoT <usericon iconsetpath>)
+    int iconsetIndexByUid(const QString& uid) const;
 
 private:
     void loadIconset(const QString& xmlPath);

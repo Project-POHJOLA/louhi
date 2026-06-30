@@ -241,14 +241,70 @@ QImage IconsetResolver::resolve2525Icon(const QString& sidc) const
 
 // ---- Icon resolution ----
 
+int IconsetResolver::iconsetIndexByUid(const QString& uid) const
+{
+    if (uid.isEmpty())
+        return -1;
+    // Search all iconsets for a matching uid
+    // TAK may send the full UUID or a variant — do exact match first
+    for (int i = 0; i < m_iconsets.size(); ++i) {
+        if (m_iconsets[i].uid == uid)
+            return i;
+    }
+    return -1;
+}
+
 QImage IconsetResolver::resolveIcon(const QString& cotType,
                                      const QString& iconsetPath,
                                      const QString& milsymId,
                                      const QString& callsign,
                                      const QString& uid) const
 {
-    // Priority 1: explicit usericon -> iconset resolver
+    // Priority 1: explicit usericon -> first try uuid/path match, then file path
     if (!iconsetPath.isEmpty()) {
+        // iconsetPath format: "{uuid}/{groupName}/{iconName.png}" or just a path
+        QString uuidPart, subPath;
+        int slashPos = iconsetPath.indexOf('/');
+        if (slashPos >= 0) {
+            uuidPart = iconsetPath.left(slashPos);
+            subPath = iconsetPath.mid(slashPos + 1);
+        } else {
+            uuidPart = iconsetPath;
+        }
+
+        int idx = iconsetIndexByUid(uuidPart);
+        if (idx >= 0) {
+            const IconsetInfo& is = m_iconsets[idx];
+
+            if (!subPath.isEmpty()) {
+                // Try to load the specific icon within this iconset
+                QString absPath = is.baseDir.absoluteFilePath(subPath);
+                if (QFile::exists(absPath)) {
+                    QImage img(absPath);
+                    if (!img.isNull()) return img;
+                }
+            }
+
+            // No subPath or icon file didn't exist — use default icon by affiliation
+            QString affil = affiliationFromType(cotType);
+            QString defaultName;
+            if (affil == "f") defaultName = is.defaultFriendly;
+            else if (affil == "h") defaultName = is.defaultHostile;
+            else if (affil == "n") defaultName = is.defaultNeutral;
+            else defaultName = is.defaultUnknown;
+            if (!defaultName.isEmpty()) {
+                QDir baseDir = is.baseDir;
+                for (const QFileInfo& subdir : baseDir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot)) {
+                    QString candidate = subdir.absoluteFilePath() + QDir::separator() + defaultName;
+                    if (QFile::exists(candidate)) {
+                        QImage img(candidate);
+                        if (!img.isNull()) return img;
+                    }
+                }
+            }
+        }
+
+        // Fall back to file-path lookup (original behaviour for non-uuid iconsetPath)
         QFileInfo fi(iconsetPath);
         if (fi.isAbsolute() && fi.exists()) {
             QImage img(iconsetPath);

@@ -47,6 +47,8 @@ private:
     QListWidget* m_messageList;
     QTextEdit* m_detailView;
     QListWidget* m_topicList;
+    QLineEdit* m_filterInput;
+    QString m_textFilter;
     int m_maxMessages;
 };
 

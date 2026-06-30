@@ -60,6 +60,8 @@ private:
     double m_configLon;
     int m_configZoom;
     QString m_configSourceName;
+    int m_iconSize;
+    bool m_declutteringEnabled;
     QJsonObject m_storedConfig;
 };
 

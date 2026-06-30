@@ -142,6 +142,10 @@ bool NatsPlugin::unload()
 
 void NatsPlugin::publish(const QString& topic, const QString& payload)
 {
+    // msg.* subjects are in-process only — never publish to NATS
+    if (topic.startsWith("msg."))
+        return;
+
     if (m_emconActive) {
         qDebug() << "NATS Plugin: EMCON active, dropping outbound message on" << topic;
         return;
@@ -252,14 +256,9 @@ void NatsPlugin::setConfig(const QJsonObject& config)
 
 void NatsPlugin::setSubscribedTopics(const QStringList& topics)
 {
-    m_subscribedTopics = topics;
-    qDebug() << "NATS Plugin: Subscribed topics set to:" << topics;
-
-    for (auto it = m_clients.begin(); it != m_clients.end(); ++it) {
-        if (it.value()->isConnected()) {
-            subscribeAllTopics(it.value());
-        }
-    }
+    // NATS plugin subscribes to grp.> and sys.> directly.
+    // Per-plugin topic aggregation is not used — the server enforces routing.
+    Q_UNUSED(topics)
 }
 
 void NatsPlugin::onClientConnected()
@@ -386,9 +385,10 @@ void NatsPlugin::updateStatusDisplay()
 
 void NatsPlugin::subscribeAllTopics(NatsClient* client)
 {
-    for (const QString& topic : m_subscribedTopics) {
-        client->subscribe(topic);
-    }
+    // Subscribe to all group and system subjects — the NATS server
+    // enforces permissions via JWT. No client-side group filtering.
+    client->subscribe(QStringLiteral("grp.>"));
+    client->subscribe(QStringLiteral("sys.>"));
 }
 
 void NatsPlugin::connectToServer(const QString& serverId)

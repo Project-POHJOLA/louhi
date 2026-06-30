@@ -13,6 +13,15 @@
 #include <QDebug>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QDialog>
+#include <QVBoxLayout>
+#include <QFormLayout>
+#include <QSpinBox>
+#include <QPushButton>
+#include <QDialogButtonBox>
+#include <QGroupBox>
+#include <QLabel>
+#include <QCheckBox>
 
 OsgEarthPlugin::OsgEarthPlugin(QObject* parent)
     : PluginInterface(parent)
@@ -23,6 +32,8 @@ OsgEarthPlugin::OsgEarthPlugin(QObject* parent)
     , m_configLon(24.9384)
     , m_configZoom(14)
     , m_configSourceName("OSM Standard")
+    , m_iconSize(32)
+    , m_declutteringEnabled(false)
 {
     m_info.id = "osgearth_map";
     m_info.name = tr("OsgEarthMap");
@@ -256,6 +267,8 @@ void OsgEarthPlugin::applyConfig()
     if (m_hasInitialPosition) {
         m_mapWidget->setCenter(m_configLat, m_configLon);
     }
+    m_mapWidget->setIconSize(m_iconSize);
+    m_mapWidget->setDeclutteringEnabled(m_declutteringEnabled);
     m_mapWidget->setZoom(m_configZoom);
 }
 
@@ -299,11 +312,54 @@ void OsgEarthPlugin::configure(QWidget* parent)
 {
     if (!m_mapWidget) return;
 
-    MapSourcesDialog dialog(currentCustomSources(), parent);
+    QDialog dialog(parent);
+    dialog.setWindowTitle(tr("OsgEarth Map Settings"));
+    QVBoxLayout* layout = new QVBoxLayout(&dialog);
+
+    // Icon size
+    QGroupBox* iconGroup = new QGroupBox(tr("Icon Display"), &dialog);
+    QFormLayout* form = new QFormLayout(iconGroup);
+    QSpinBox* iconSizeSpin = new QSpinBox(&dialog);
+    iconSizeSpin->setRange(8, 128);
+    iconSizeSpin->setValue(m_iconSize);
+    form->addRow(tr("Icon size (px):"), iconSizeSpin);
+    QCheckBox* declutterCheck = new QCheckBox(tr("Enable decluttering (fade/shrink overlapping icons)"), &dialog);
+    declutterCheck->setChecked(m_declutteringEnabled);
+    form->addRow(QString(), declutterCheck);
+    layout->addWidget(iconGroup);
+
+    // Map sources
+    QGroupBox* sourcesGroup = new QGroupBox(tr("Custom Map Sources"), &dialog);
+    QVBoxLayout* sourcesLayout = new QVBoxLayout(sourcesGroup);
+    QLabel* infoLabel = new QLabel(
+        tr("Manage custom tile sources. Built-in sources (OSM Standard, Carto Dark)\n"
+           "are always available and can be selected from the basemap panel."));
+    infoLabel->setWordWrap(true);
+    sourcesLayout->addWidget(infoLabel);
+    QPushButton* sourcesBtn = new QPushButton(tr("Manage Map Sources..."), &dialog);
+    sourcesLayout->addWidget(sourcesBtn);
+    layout->addWidget(sourcesGroup);
+
+    QDialogButtonBox* buttons = new QDialogButtonBox(
+        QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    layout->addWidget(buttons);
+
+    QObject::connect(sourcesBtn, &QPushButton::clicked, [this]() {
+        MapSourcesDialog dlg(currentCustomSources());
+        if (dlg.exec() == QDialog::Accepted) {
+            m_mapWidget->setCustomSources(dlg.customSources());
+            updateBasemapDockSources();
+        }
+    });
+
+    QObject::connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    QObject::connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
 
     if (dialog.exec() == QDialog::Accepted) {
-        m_mapWidget->setCustomSources(dialog.customSources());
-        updateBasemapDockSources();
+        m_iconSize = iconSizeSpin->value();
+        m_mapWidget->setIconSize(m_iconSize);
+        m_declutteringEnabled = declutterCheck->isChecked();
+        m_mapWidget->setDeclutteringEnabled(m_declutteringEnabled);
     }
 }
 
@@ -331,6 +387,8 @@ QJsonObject OsgEarthPlugin::getConfig() const
         }
     }
     config["customSources"] = sourcesArray;
+    config["declutteringEnabled"] = m_mapWidget ? m_mapWidget->declutteringEnabled() : m_declutteringEnabled;
+    config["iconSize"] = m_mapWidget ? m_mapWidget->iconSize() : m_iconSize;
 
     return config;
 }
@@ -339,12 +397,17 @@ void OsgEarthPlugin::setConfig(const QJsonObject& config)
 {
     m_storedConfig = config;
 
+    m_declutteringEnabled = config.value("declutteringEnabled").toBool(false);
+
     if (config.contains("latitude") && config.contains("longitude")) {
         m_configLat = config.value("latitude").toDouble(60.1699);
         m_configLon = config.value("longitude").toDouble(24.9384);
         m_configZoom = config.value("zoom").toInt(10);
         m_configSourceName = config.value("sourceName").toString("OSM Standard");
         m_hasInitialPosition = true;
+        m_iconSize = config.value("iconSize").toInt(32);
+        if (m_mapWidget)
+            m_mapWidget->setIconSize(m_iconSize);
     }
 
     if (m_mapWidget) {
@@ -415,6 +478,16 @@ MapEntity OsgEarthPlugin::parseCotMessage(const QString& topic, const QString& p
                     if (!id.isEmpty())
                         entity.milsymId = id;
                 }
+                // Parse color attribute (argb signed int, e.g. -65536 = red)
+                if (xml.isStartElement() && xml.name() == QStringLiteral("color")) {
+                    QString colorStr = xml.attributes().value("argb").toString();
+                    if (!colorStr.isEmpty()) {
+                        bool ok;
+                        int argb = colorStr.toInt(&ok);
+                        if (ok)
+                            entity.colorArgb = static_cast<QRgb>(argb);
+                    }
+                }
                 if (xml.isEndElement() && xml.name() == QStringLiteral("detail")) {
                 }
             }
@@ -440,9 +513,15 @@ void OsgEarthPlugin::deliverMessage(const QString& topic, const QString& payload
     if (entity.uid.isEmpty())
         return;
 
+
     // Resolve icon: milsymId → 2525B, cotType → 2525B, iconsetPath → iconset
     entity.icon = m_iconResolver.resolveIcon(entity.cotType, entity.iconsetPath,
                                              entity.milsymId, entity.callsign, entity.uid);
+
+    // Apply color tint if the CoT specifies a color
+    if (entity.colorArgb != 0 && qAlpha(entity.colorArgb) > 0) {
+        entity.icon = m_mapWidget->tintIcon(entity.icon, entity.colorArgb);
+    }
 
     // Add or update entity on the map
     m_mapWidget->addOrUpdateEntity(entity);

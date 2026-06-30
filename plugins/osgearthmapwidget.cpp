@@ -35,6 +35,8 @@
 #include <osgEarth/WMS>
 #include <osgEarth/HTTPClient>
 #include <osgEarth/GeoData>
+#include <osgEarth/Cache>
+#include <osgEarthDrivers/cache_filesystem/FileSystemCache>
 OsgEarthMapWidget::OsgEarthMapWidget(QWidget* parent)
     : QOpenGLWidget(parent)
     , m_centerLat(60.1699)
@@ -79,7 +81,7 @@ void OsgEarthMapWidget::setCustomSources(const QList<MapSource>& sources)
     m_customSources = sources;
 }
 
-static osg::Image* qImageToOsgImage(const QImage& qimg, int size = 32)
+static osg::Image* qImageToOsgImage(const QImage& qimg, int size)
 {
     QImage scaled = qimg.scaled(size, size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
     scaled = scaled.convertToFormat(QImage::Format_RGBA8888);
@@ -91,6 +93,30 @@ static osg::Image* qImageToOsgImage(const QImage& qimg, int size = 32)
     osgImg->setImage(scaled.width(), scaled.height(), 1, 4, GL_RGBA, GL_UNSIGNED_BYTE,
                      data, osg::Image::USE_NEW_DELETE);
     return osgImg;
+}
+
+QImage OsgEarthMapWidget::tintIcon(const QImage& icon, QRgb argb)
+{
+    if (icon.isNull())
+        return icon;
+
+    QImage tinted = icon.convertToFormat(QImage::Format_ARGB32);
+    int tr = qRed(argb);
+    int tg = qGreen(argb);
+    int tb = qBlue(argb);
+
+    for (int y = 0; y < tinted.height(); ++y) {
+        QRgb* line = reinterpret_cast<QRgb*>(tinted.scanLine(y));
+        for (int x = 0; x < tinted.width(); ++x) {
+            QRgb pixel = line[x];
+            int r = (qRed(pixel) * tr) / 255;
+            int g = (qGreen(pixel) * tg) / 255;
+            int b = (qBlue(pixel) * tb) / 255;
+            line[x] = qRgba(r, g, b, qAlpha(pixel));
+        }
+    }
+
+    return tinted;
 }
 // Determine altitude mode from CoT type (third dash-separated token = dimension)
 //   G=Ground → RELATIVE with 2m offset
@@ -135,14 +161,26 @@ void OsgEarthMapWidget::addOrUpdateEntity(const MapEntity& entity)
 
     osgEarth::GeoPoint pos = entityPosition(entity);
 
+    // Detect icon change before overwriting m_entityIcons
+    bool iconChanged = false;
+    if (!entity.icon.isNull()) {
+        auto prevIt = m_entityIcons.constFind(entity.uid);
+        iconChanged = (prevIt == m_entityIcons.constEnd())
+                      || (prevIt->cacheKey() != entity.icon.cacheKey());
+        m_entityIcons[entity.uid] = entity.icon;
+        if (iconChanged)
+            m_cachedOsgIcons.remove(entity.uid);
+    }
+
     // Check if entity already exists — update position and icon
     auto it = m_entities.find(entity.uid);
     if (it != m_entities.end()) {
         osgEarth::PlaceNode* node = it.value().get();
         node->setPosition(pos);
-        if (!entity.icon.isNull()) {
-            node->setIconImage(qImageToOsgImage(entity.icon));
-        }
+        // Reuse cached osg::Image if icon hasn't changed
+        auto osgIt = m_cachedOsgIcons.constFind(entity.uid);
+        if (osgIt != m_cachedOsgIcons.constEnd() && osgIt->valid())
+            node->setIconImage(osgIt->get());
         return;
     }
 
@@ -150,12 +188,15 @@ void OsgEarthMapWidget::addOrUpdateEntity(const MapEntity& entity)
     osgEarth::PlaceNode* node = new osgEarth::PlaceNode();
     node->setPosition(pos);
 
-    if (!entity.icon.isNull()) {
-        node->setIconImage(qImageToOsgImage(entity.icon));
+    auto iconIt = m_entityIcons.constFind(entity.uid);
+    if (iconIt != m_entityIcons.constEnd() && !iconIt->isNull()) {
+        osg::Image* img = qImageToOsgImage(iconIt.value(), m_iconSize);
+        m_cachedOsgIcons[entity.uid] = img;
+        node->setIconImage(img);
     }
-
+    m_entities[entity.uid] = node;
     m_annotationLayer->addChild(node);
-    m_entities.insert(entity.uid, node);
+
 }
 
 void OsgEarthMapWidget::clearEntities()
@@ -165,11 +206,14 @@ void OsgEarthMapWidget::clearEntities()
     }
     m_entities.clear();
     m_staleTimes.clear();
+    m_entityIcons.clear();
+    m_cachedOsgIcons.clear();
 }
-
 void OsgEarthMapWidget::removeEntity(const QString& uid)
 {
+    m_cachedOsgIcons.remove(uid);
     m_staleTimes.remove(uid);
+    m_entityIcons.remove(uid);
     auto it = m_entities.find(uid);
     if (it != m_entities.end()) {
         m_annotationLayer->getGroup()->removeChild(it.value().get());
@@ -177,6 +221,31 @@ void OsgEarthMapWidget::removeEntity(const QString& uid)
     }
 }
 
+void OsgEarthMapWidget::setIconSize(int size)
+{
+    m_iconSize = size;
+    if (!m_mapInitialized) return;
+    m_cachedOsgIcons.clear();
+    // Rescale all existing entity icons to the new size
+    for (auto it = m_entityIcons.begin(); it != m_entityIcons.end(); ++it) {
+        auto entityIt = m_entities.constFind(it.key());
+        if (entityIt != m_entities.constEnd() && entityIt.value().valid()) {
+            osg::Image* img = qImageToOsgImage(it.value(), m_iconSize);
+            m_cachedOsgIcons[it.key()] = img;
+            entityIt.value()->setIconImage(img);
+        }
+    }
+    update();
+}
+
+void OsgEarthMapWidget::setDeclutteringEnabled(bool enabled)
+{
+    m_declutteringEnabled = enabled;
+    if (m_mapInitialized) {
+        osgEarth::ScreenSpaceLayout::setDeclutteringEnabled(enabled);
+        update();
+    }
+}
 void OsgEarthMapWidget::staleCheck()
 {
     if (m_staleTimes.isEmpty()) return;
@@ -241,6 +310,20 @@ void OsgEarthMapWidget::setupMap()
 {
     m_map = new osgEarth::Map();
 
+    // ── Set up osgEarth disk cache ──
+    {
+        QString cacheRoot = TileCache::cacheDirectory();
+        osgEarth::Drivers::FileSystemCacheOptions cacheOpts;
+        cacheOpts.rootPath() = cacheRoot.toStdString();
+        osgEarth::Cache* cache = osgEarth::Util::CacheFactory::create(cacheOpts);
+        if (cache) {
+            m_map->setCache(cache);
+            qDebug() << "OsgEarthMapWidget: disk cache at" << cacheRoot;
+        } else {
+            qWarning() << "OsgEarthMapWidget: failed to create disk cache at" << cacheRoot;
+        }
+    }
+
     rebuildMapLayer();
 
     m_mapNode = new osgEarth::MapNode(m_map);
@@ -253,6 +336,8 @@ void OsgEarthMapWidget::setupMap()
     // Create annotation layer for tactical entities
     m_annotationLayer = new osgEarth::AnnotationLayer();
     m_annotationLayer->setName("TacticalEntities");
+    // Apply decluttering preference
+    osgEarth::ScreenSpaceLayout::setDeclutteringEnabled(m_declutteringEnabled);
     m_map->addLayer(m_annotationLayer);
 
     // Start stale-check timer (every 5 seconds)
@@ -272,7 +357,6 @@ void OsgEarthMapWidget::rebuildMapLayer()
     for (auto& layer : imageLayers) {
         m_map->removeLayer(layer);
     }
-
     std::string layerName = m_currentSource.name.toStdString();
     std::string url = m_currentSource.url.toStdString();
 
@@ -286,7 +370,7 @@ void OsgEarthMapWidget::rebuildMapLayer()
         layer->options().maxLevel().setDefault(
             static_cast<unsigned>(m_currentSource.maxZoom));
         layer->options().minLevel().setDefault(0);
-        layer->setCacheID(TileCache::cacheDirectory().toStdString() + "/" + m_currentSource.name.toStdString());
+        layer->setCacheID(m_currentSource.name.toStdString());
 
         m_map->addLayer(layer);
         qDebug() << "OsgEarthMapWidget: Added XYZ layer" << m_currentSource.name;
@@ -300,7 +384,7 @@ void OsgEarthMapWidget::rebuildMapLayer()
 
         osgEarth::WMSImageLayer* layer = new osgEarth::WMSImageLayer(wmsOpt);
         layer->setName(layerName);
-        layer->setCacheID(TileCache::cacheDirectory().toStdString() + "/" + m_currentSource.name.toStdString());
+        layer->setCacheID(m_currentSource.name.toStdString());
 
         m_map->addLayer(layer);
         qDebug() << "OsgEarthMapWidget: Added WMS layer" << m_currentSource.name;

@@ -74,6 +74,30 @@ bool MessageViewerPlugin::initialize()
     buttonLayout->addStretch();
     layout->addLayout(buttonLayout);
 
+    QHBoxLayout* filterLayout = new QHBoxLayout();
+    QLabel* filterLabel = new QLabel(tr("Filter:"), m_widget);
+    m_filterInput = new QLineEdit(m_widget);
+    m_filterInput->setPlaceholderText(tr("Filter messages (text or topic)..."));
+    QPushButton* clearFilterBtn = new QPushButton(tr("Clear"), m_widget);
+    filterLayout->addWidget(filterLabel);
+    filterLayout->addWidget(m_filterInput);
+    filterLayout->addWidget(clearFilterBtn);
+    layout->addLayout(filterLayout);
+
+    connect(m_filterInput, &QLineEdit::textChanged, this, [this]() {
+        m_textFilter = m_filterInput->text().trimmed();
+        // Re-filter existing messages
+        for (int i = 0; i < m_messageList->count(); ++i) {
+            QListWidgetItem* item = m_messageList->item(i);
+            QString detail = item->data(Qt::UserRole).toString();
+            bool visible = m_textFilter.isEmpty() || detail.contains(m_textFilter, Qt::CaseInsensitive);
+            item->setHidden(!visible);
+        }
+    });
+
+    connect(clearFilterBtn, &QPushButton::clicked, this, [this]() {
+        m_filterInput->clear();
+    });
     connect(clearBtn, &QPushButton::clicked, this, &MessageViewerPlugin::clearMessages);
 
     QLabel* topicLabel = new QLabel(tr("Topic Subscriptions:"), m_widget);
@@ -166,6 +190,14 @@ void MessageViewerPlugin::deliverMessage(const QString& topic, const QString& pa
 {
     if (!m_messageList) {
         return;
+    }
+
+    // Apply text filter on the incoming message
+    if (!m_textFilter.isEmpty()) {
+        bool match = topic.contains(m_textFilter, Qt::CaseInsensitive) ||
+                     payload.contains(m_textFilter, Qt::CaseInsensitive);
+        if (!match)
+            return;
     }
 
     QMetaObject::invokeMethod(this, [this, topic, payload]() {

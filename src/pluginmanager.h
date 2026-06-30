@@ -34,9 +34,9 @@ public:
     void loadAllPlugins();
     void unloadAllPlugins();
 
+
     QStringList collectAllSubscribeTopics() const;
     void updateCommunicationPluginTopics();
-
     QVector<LoadedPlugin> getLoadedPlugins() const { return m_plugins; }
     QVector<PluginInterface*> getPluginsByType(PluginType type) const;
     QVector<PluginInterface*> getAllPlugins() const;

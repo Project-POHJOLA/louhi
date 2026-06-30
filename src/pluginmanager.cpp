@@ -137,7 +137,7 @@ void PluginManager::loadAllPlugins()
         if (plugin->load()) {
             loaded.enabled = true;
             connect(plugin, &PluginInterface::messageReceived,
-                    this, &PluginManager::emitMessageToPlugins);
+                    this, &PluginManager::emitMessageToPlugins, Qt::QueuedConnection);
             connect(plugin, &PluginInterface::connectionStatusChanged,
                     this, [this, plugin](const QString& connectionName, const QString& status) {
                         emit pluginConnectionStatusChanged(plugin->getPluginInfo().id, status);
@@ -149,6 +149,7 @@ void PluginManager::loadAllPlugins()
             qDebug() << "Loaded plugin:" << info.name;
         }
     }
+
 
     updateCommunicationPluginTopics();
 }

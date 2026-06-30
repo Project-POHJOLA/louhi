@@ -1,0 +1,14 @@
+{
+  "name": "louhi-2525-icons",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Generates MIL-STD-2525C icons for all affiliations using milsymbol.js v3 with text-to-path conversion",
+  "scripts": {
+    "generate": "node generate-icons.mjs"
+  },
+  "dependencies": {
+    "milsymbol": "^3.0.4",
+    "opentype.js": "^1.3.4",
+    "@xmldom/xmldom": "^0.8.10"
+  }
+}

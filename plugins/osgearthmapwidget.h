@@ -16,6 +16,7 @@
 #include <osgEarth/MapNode>
 #include <osgEarth/Map>
 #include <osgEarth/AnnotationLayer>
+#include <osgEarth/ScreenSpaceLayout>
 #include <osgEarth/PlaceNode>
 
 struct MapEntity {
@@ -29,6 +30,7 @@ struct MapEntity {
     QString milsymId;   // from __milsym/__milicon/milsym/milicon detail
     QImage icon;
     QDateTime staleTime;
+    QRgb colorArgb = 0;       // 0 = unset (no tint)
 };
 class OsgEarthMapWidget : public QOpenGLWidget
 {
@@ -47,12 +49,17 @@ public:
     double latitude() const { return m_centerLat; }
     double longitude() const { return m_centerLon; }
     int zoom() const { return m_zoom; }
+    int iconSize() const { return m_iconSize; }
+    void setIconSize(int size);
+    bool declutteringEnabled() const { return m_declutteringEnabled; }
+    void setDeclutteringEnabled(bool enabled);
 
     void setSource(const MapSource& source);
     MapSource source() const { return m_currentSource; }
 
     QList<MapSource> customSources() const { return m_customSources; }
     void setCustomSources(const QList<MapSource>& sources);
+    static QImage tintIcon(const QImage& icon, QRgb argb);
 
 signals:
     void centerChanged(double lat, double lon);
@@ -80,12 +87,16 @@ private:
     osg::ref_ptr<osgEarth::AnnotationLayer> m_annotationLayer;
     QMap<QString, osg::ref_ptr<osgEarth::PlaceNode>> m_entities;
     QMap<QString, QDateTime> m_staleTimes;
+    QMap<QString, osg::ref_ptr<osg::Image>> m_cachedOsgIcons;
+    QMap<QString, QImage> m_entityIcons;
     QTimer* m_staleTimer;
     osg::ref_ptr<osgEarth::Map> m_map;
 
     double m_centerLat;
     double m_centerLon;
     int m_zoom;
+    bool m_declutteringEnabled = false;
+    int m_iconSize = 32;
 
     QTimer* m_updateTimer;
 
