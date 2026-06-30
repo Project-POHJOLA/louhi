@@ -24,8 +24,12 @@ if(APPLE)
             -executable="$<TARGET_FILE:louhi>"
             -verbose=1
         COMMENT "Building macOS application bundle with macdeployqt"
-        DEPENDS louhi natsplugin messageviewerplugin takplugin locationplugin mapplugin
+        DEPENDS louhi natsplugin messageviewerplugin takplugin locationplugin
     )
+
+    if(osgEarth_FOUND)
+        add_dependencies(portable-deploy osgearthplugin)
+    endif()
 
 elseif(WIN32)
     # ------------------------------------------------------------------
@@ -45,8 +49,12 @@ elseif(WIN32)
         COMMAND ${WINDEPLOYQT} "$<TARGET_FILE:louhi>" --dir "${DEPLOY_DIR}"
             --plugindir "${DEPLOY_PLUGIN_DIR}" --release
         COMMENT "Building Windows deployment bundle with windeployqt"
-        DEPENDS louhi natsplugin messageviewerplugin takplugin locationplugin mapplugin
+        DEPENDS louhi natsplugin messageviewerplugin takplugin locationplugin
     )
+
+    if(osgEarth_FOUND)
+        add_dependencies(portable-deploy osgearthplugin)
+    endif()
 
 else()
     # ------------------------------------------------------------------
@@ -90,9 +98,10 @@ else()
         "$<TARGET_FILE:messageviewerplugin>"
         "$<TARGET_FILE:takplugin>"
         "$<TARGET_FILE:locationplugin>"
-        "$<TARGET_FILE:mapplugin>"
-        "$<TARGET_FILE:osgearthplugin>"
     )
+    if(osgEarth_FOUND)
+        list(APPEND OUR_BINARIES "$<TARGET_FILE:osgearthplugin>")
+    endif()
 
     # Build a list of deploy sub-targets we depend on
     set(DEPLOY_DEPS
@@ -102,9 +111,10 @@ else()
         messageviewerplugin
         takplugin
         locationplugin
-        mapplugin
-        osgearthplugin
     )
+    if(osgEarth_FOUND)
+        list(APPEND DEPLOY_DEPS osgearthplugin)
+    endif()
 
     # Generate the deploy script
     set(DEPLOY_SCRIPT "${CMAKE_BINARY_DIR}/portable-deploy.sh")

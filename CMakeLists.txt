@@ -148,9 +148,8 @@ add_custom_target(copy_plugins ALL
 # ---------------------------------------------------------------------------
 # Installation rules (used by portable deploy target)
 # ---------------------------------------------------------------------------
-install(TARGETS louhi DESTINATION bin)
 install(TARGETS plugininterface DESTINATION lib)
-install(TARGETS natsplugin messageviewerplugin takplugin locationplugin mapplugin
+install(TARGETS natsplugin messageviewerplugin takplugin locationplugin
     LIBRARY DESTINATION plugins
 )
 if(osgEarth_FOUND)

@@ -73,16 +73,6 @@ endif()
 
 set_plugin_properties(locationplugin)
 
-add_library(mapplugin SHARED
-    mapplugin.h
-    mapplugin.cpp
-    mapwidget.h
-    mapwidget.cpp
-)
-
-target_link_libraries(mapplugin plugininterface Qt6::Widgets Qt6::Core Qt6::Gui Qt6::Network)
-
-set_plugin_properties(mapplugin)
 
 # ---------------------------------------------------------------------------
 # OsgEarth Map Plugin (optional, requires osgEarth)

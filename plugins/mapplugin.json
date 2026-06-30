@@ -1,7 +1,0 @@
-{
-    "IID": "com.louhi.plugininterface/1.0",
-    "Name": "Map",
-    "Description": "Map plugin with OSM, Carto Dark, and custom WMS/XYZ tile support",
-    "Version": "0.1",
-    "Author": "LOUHI Team"
-}

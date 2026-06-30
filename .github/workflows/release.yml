@@ -1,0 +1,338 @@
+name: Release Build
+
+on:
+  push:
+    branches:
+      - 'release-*'
+
+env:
+  BUILD_TYPE: Release
+  VCPKG_ROOT: C:\vcpkg
+
+jobs:
+  build:
+    name: ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            arch: linux-amd64
+
+          - os: macos-13
+            arch: macos-amd64
+
+          - os: windows-2022
+            arch: windows-amd64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      # ── Checkout ──
+      - uses: actions/checkout@v4
+
+      # ═════════════════════════════════════════
+      # Platform-specific dependency setup
+      # ═════════════════════════════════════════
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            qt6-base-dev qt6-tools-dev qt6-l10n-tools \
+            qt6-serialport-dev qt6-positioning-dev \
+            libgl1-mesa-dev libssl-dev \
+            libprotobuf-dev protobuf-compiler \
+            patchelf zip
+
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: |
+          brew update
+          brew install qt@6 openssl protobuf
+          echo "QT6_DIR=$(brew --prefix qt@6)" >> "$GITHUB_ENV"
+          echo "$(brew --prefix qt@6)/bin" >> "$GITHUB_PATH"
+
+      - name: Install Qt6 (Windows)
+        if: runner.os == 'Windows'
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.4.*'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2022_64'
+          modules: qtpositioning qtserialport qtsvg
+
+      - name: Install protobuf (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          & "$env:VCPKG_ROOT\vcpkg" install protobuf --triplet x64-windows
+
+      # ═════════════════════════════════════════
+      # Clone external dependencies
+      # ═════════════════════════════════════════
+
+      - name: Clone NATS C Client
+        run: |
+          rm -rf deps/nats.c
+          git clone --depth 1 --branch v3.12.0 \
+            https://github.com/nats-io/nats.c.git deps/nats.c
+
+      - name: Clone OpenSceneGraph
+        run: |
+          rm -rf deps/OpenSceneGraph
+          mkdir -p deps/OpenSceneGraph
+          cd deps/OpenSceneGraph
+          git init
+          git remote add origin https://github.com/openscenegraph/OpenSceneGraph.git
+          git fetch origin 2e4ae2ea94595995c1fc56860051410b0c0be605 --depth 1
+          git checkout FETCH_HEAD
+
+      - name: Clone osgEarth
+        run: |
+          rm -rf deps/osgearth
+          mkdir -p deps/osgearth
+          cd deps/osgearth
+          git init
+          git remote add origin https://github.com/gwaldron/osgearth.git
+          git fetch origin refs/tags/osgearth-3.8 --depth 1
+          git checkout FETCH_HEAD
+
+      # ═════════════════════════════════════════
+      # Build OpenSceneGraph (cached)
+      # ═════════════════════════════════════════
+
+      - name: Cache OpenSceneGraph
+        id: cache-osg
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/louhi-deps
+          key: osg-v3.7.0-${{ runner.os }}
+          restore-keys: |
+            osg-v3.7.0-${{ runner.os }}-
+
+      - name: Build OpenSceneGraph
+        if: steps.cache-osg.outputs.cache-hit != 'true'
+        working-directory: deps/OpenSceneGraph
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
+            -DCMAKE_INSTALL_PREFIX=${{ runner.temp }}/louhi-deps \
+            -DOPENGL_PROFILE=GL3 \
+            -DOSG_GL_CONTEXT_VERSION=4.6 \
+            -DBUILD_OSG_EXAMPLES=OFF \
+            -DDYNAMIC_OSG=OFF \
+            -DDYNAMIC_OPENTHREADS=OFF
+          cmake --build build --config ${{ env.BUILD_TYPE }} --parallel
+          cmake --install build --config ${{ env.BUILD_TYPE }}
+
+      # ═════════════════════════════════════════
+      # Build osgEarth (cached)
+      # ═════════════════════════════════════════
+
+      - name: Cache osgEarth
+        id: cache-osgearth
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/louhi-deps
+          key: osgearth-3.8-${{ runner.os }}
+          restore-keys: |
+            osgearth-3.8-${{ runner.os }}-
+
+      - name: Set osgEarth build flags
+        id: osgearth-flags
+        run: |
+          FLAGS=""
+          # On Windows, osgEarth needs vcpkg toolchain to find protobuf
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            FLAGS="-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
+          fi
+          echo "toolchain=${FLAGS}" >> "$GITHUB_OUTPUT"
+
+      - name: Configure osgEarth CMake
+        if: steps.cache-osgearth.outputs.cache-hit != 'true'
+        working-directory: deps/osgearth
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
+            -DCMAKE_INSTALL_PREFIX=${{ runner.temp }}/louhi-deps \
+            -DCMAKE_PREFIX_PATH=${{ runner.temp }}/louhi-deps \
+            -DOSGEARTH_BUILD_TOOLS=OFF \
+            -DOSGEARTH_BUILD_EXAMPLES=OFF \
+            -DOSGEARTH_BUILD_TESTS=OFF \
+            ${{ steps.osgearth-flags.outputs.toolchain }}
+
+      - name: Build osgEarth
+        if: steps.cache-osgearth.outputs.cache-hit != 'true'
+        working-directory: deps/osgearth
+        run: |
+          cmake --build build --config ${{ env.BUILD_TYPE }} --parallel
+          cmake --install build --config ${{ env.BUILD_TYPE }}
+
+      # ═════════════════════════════════════════
+      # Build LOUHI
+      # ═════════════════════════════════════════
+
+      - name: Configure LOUHI
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
+            -DCMAKE_PREFIX_PATH=${{ runner.temp }}/louhi-deps \
+            -DBUILD_PORTABLE=ON
+
+      - name: Build LOUHI
+        run: |
+          cmake --build build --config ${{ env.BUILD_TYPE }} --parallel
+
+      # ═════════════════════════════════════════
+      # Create portable bundle
+      # ═════════════════════════════════════════
+
+      - name: Create portable bundle (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cmake --build build --target portable-deploy
+
+      - name: Create portable bundle (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          APP="${GITHUB_WORKSPACE}/build/Louhi.app"
+          # Standard .app bundle structure
+          mkdir -p "${APP}/Contents/MacOS/lib" \
+                   "${APP}/Contents/MacOS/plugins" \
+                   "${APP}/Contents/Frameworks" \
+                   "${APP}/Contents/Resources" \
+                   "${APP}/Contents/PlugIns"
+
+          # Install files into bundle
+          cmake --install "${GITHUB_WORKSPACE}/build" --prefix "${APP}/Contents"
+
+          # Rearrange into standard macOS .app layout
+          mv "${APP}/Contents/bin/louhi" "${APP}/Contents/MacOS/"
+          mv "${APP}/Contents/lib/libplugininterface.dylib" "${APP}/Contents/MacOS/lib/"
+          mv "${APP}/Contents/plugins"/* "${APP}/Contents/MacOS/plugins/" 2>/dev/null || true
+          rm -rf "${APP}/Contents/bin" "${APP}/Contents/lib" "${APP}/Contents/plugins"
+
+          # Info.plist — required for macOS app bundles
+          cat > "${APP}/Contents/Info.plist" << 'PLIST_END'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple/DTD PLIST 1.0//EN"
+            "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleExecutable</key>
+            <string>louhi</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.louhi.app</string>
+            <key>CFBundleName</key>
+            <string>Louhi</string>
+            <key>CFBundleVersion</key>
+            <string>0.3.0</string>
+            <key>CFBundleShortVersionString</key>
+            <string>0.3.0</string>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+            <key>LSMinimumSystemVersion</key>
+            <string>11.0</string>
+          </dict>
+          </plist>
+          PLIST_END
+
+          # Deploy Qt frameworks via macdeployqt
+          # Collect all plugin dylibs so their Qt rpaths get fixed too
+          MACDEPLOYQT="$(brew --prefix qt@6)/bin/macdeployqt"
+          PLUGIN_ARGS=()
+          while IFS= read -r -d '' lib; do
+            PLUGIN_ARGS+=(-executable="$lib")
+          done < <(find "${APP}" -type f -name '*.dylib' -print0)
+          "${MACDEPLOYQT}" "${APP}" "${PLUGIN_ARGS[@]}" -verbose=1
+
+      - name: Create portable bundle (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cmake --build build --target portable-deploy --config ${{ env.BUILD_TYPE }}
+
+      # ═════════════════════════════════════════
+      # Package zip
+      # ═════════════════════════════════════════
+
+      - name: Package zip (Linux / macOS)
+        if: runner.os != 'Windows'
+        working-directory: build
+        run: |
+          ZIP_NAME="${{ github.workspace }}/${{ matrix.arch }}-${{ github.ref_name }}.zip"
+          zip -r "${ZIP_NAME}" Louhi.app/
+          echo "Created: ${ZIP_NAME}"
+
+      - name: Package zip (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: build
+        run: |
+          $zip = "${{ github.workspace }}\${{ matrix.arch }}-${{ github.ref_name }}.zip"
+          Compress-Archive -Path Louhi -DestinationPath $zip
+          Write-Host "Created: $zip"
+
+      # ═════════════════════════════════════════
+      # Upload artifact
+      # ═════════════════════════════════════════
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.arch }}-${{ github.ref_name }}
+          path: ${{ matrix.arch }}-${{ github.ref_name }}.zip
+          if-no-files-found: error
+
+  # ═══════════════════════════════════════════════
+  # Create GitHub release with all platform artifacts
+  # ═══════════════════════════════════════════════
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute short SHA
+        id: sha
+        run: echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Generate changelog
+        run: |
+          LAST_TAG="$(git describe --tags --abbrev=0 2>/dev/null || git rev-list --max-parents=0 HEAD)"
+          echo "last_tag=${LAST_TAG}" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Changes since ${LAST_TAG}"
+            echo ""
+            git log "${LAST_TAG}..HEAD" --oneline --no-decorate 2>/dev/null || \
+              git log --oneline --no-decorate
+          } > changelog.txt
+          echo "--- changelog preview ---"
+          head -20 changelog.txt
+
+      - name: List release artifacts
+        run: ls -la artifacts/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.sha.outputs.short }}
+          name: "${{ github.ref_name }} (${{ steps.sha.outputs.short }})"
+          body_path: changelog.txt
+          files: artifacts/*.zip
+          draft: false
+          prerelease: false
