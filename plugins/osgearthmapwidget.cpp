@@ -8,6 +8,8 @@
 #include <osg/GL>
 #include <QTimer>
 
+#include <osgUtil/LineSegmentIntersector>
+#include <osgUtil/IntersectionVisitor>
 #include <osg/Notify>
 #include <osg/Geode>
 #include <osg/ShapeDrawable>
@@ -498,6 +500,7 @@ void OsgEarthMapWidget::mouseMoveEvent(QMouseEvent* event)
 
 void OsgEarthMapWidget::mouseReleaseEvent(QMouseEvent* event)
 {
+    setFocus();
     if (m_viewer.valid()) {
         osgGA::EventQueue* eq = m_viewer->getEventQueue();
         if (eq) {
@@ -506,6 +509,11 @@ void OsgEarthMapWidget::mouseReleaseEvent(QMouseEvent* event)
             else if (event->button() == Qt::MiddleButton) button = 2;
             else if (event->button() == Qt::RightButton) button = 3;
             eq->mouseButtonRelease(event->x(), event->y(), button);
+        }
+
+        // Pick entities on left-click
+        if (event->button() == Qt::LeftButton && event->type() == QEvent::MouseButtonRelease) {
+            pickEntity(event->x(), event->y());
         }
 
         osgEarth::Util::EarthManipulator* manip =
@@ -521,6 +529,40 @@ void OsgEarthMapWidget::mouseReleaseEvent(QMouseEvent* event)
     }
     update();
     event->accept();
+}
+
+void OsgEarthMapWidget::pickEntity(int x, int y)
+{
+    if (!m_viewer.valid() || !m_viewer->getCamera())
+        return;
+
+    // Convert Qt widget coords to osg window coords (Y flipped)
+    double vx = static_cast<double>(x);
+    double vy = static_cast<double>(height() - y);
+
+    osg::ref_ptr<osgUtil::LineSegmentIntersector> intersector =
+        new osgUtil::LineSegmentIntersector(
+            osgUtil::Intersector::WINDOW, vx, vy);
+    osgUtil::IntersectionVisitor iv(intersector.get());
+    m_viewer->getCamera()->accept(iv);
+
+    if (!intersector->containsIntersections())
+        return;
+
+    const auto& hits = intersector->getIntersections();
+    for (const auto& hit : hits) {
+        // Walk node path from leaf back to root to find a PlaceNode match
+        for (auto nodeIt = hit.nodePath.rbegin(); nodeIt != hit.nodePath.rend(); ++nodeIt) {
+            osg::Node* node = *nodeIt;
+            if (!node) continue;
+            for (auto entIt = m_entities.constBegin(); entIt != m_entities.constEnd(); ++entIt) {
+                if (entIt.value() == node) {
+                    emit entityClicked(entIt.key());
+                    return;
+                }
+            }
+        }
+    }
 }
 
 void OsgEarthMapWidget::wheelEvent(QWheelEvent* event)

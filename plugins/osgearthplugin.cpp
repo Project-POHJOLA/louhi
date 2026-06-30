@@ -2,6 +2,7 @@
 #include "osgearthmapwidget.h"
 #include "osgearthbasemapdock.h"
 #include "mapsourcesdialog.h"
+#include "entityinfowidget.h"
 #include "iconsetresolver.h"
 #include <QXmlStreamReader>
 #include <QApplication>
@@ -28,6 +29,7 @@ OsgEarthPlugin::OsgEarthPlugin(QObject* parent)
     , m_mapWidget(nullptr)
     , m_basemapDock(nullptr)
     , m_hasInitialPosition(false)
+    , m_entityInfo(nullptr)
     , m_configLat(60.1699)
     , m_configLon(24.9384)
     , m_configZoom(14)
@@ -153,6 +155,18 @@ bool OsgEarthPlugin::initialize()
     connect(m_basemapDock, &BasemapDockWidget::sourceSelected, this,
         [this](const MapSource& source) {
             m_mapWidget->setSource(source);
+        });
+
+    // Entity info widget — hidden until user clicks an icon
+    m_entityInfo = new EntityInfoWidget();
+    m_entityInfo->setObjectName("osgearthEntityInfo");
+
+    connect(m_mapWidget, &OsgEarthMapWidget::entityClicked, this,
+        [this](const QString& uid) {
+            auto it = m_entityDetails.constFind(uid);
+            if (it != m_entityDetails.constEnd()) {
+                m_entityInfo->showEntity(it.value());
+            }
         });
 
     // Load iconsets and 2525B tactical icons
@@ -287,10 +301,13 @@ bool OsgEarthPlugin::stop()
 bool OsgEarthPlugin::unload()
 {
     qDebug() << "OsgEarth Plugin: Unloading";
+    delete m_entityInfo;
+    m_entityInfo = nullptr;
     delete m_basemapDock;
     m_basemapDock = nullptr;
     delete m_mapWidget;
     m_mapWidget = nullptr;
+    m_entityDetails.clear();
     m_hasInitialPosition = false;
     return true;
 }
@@ -305,6 +322,8 @@ QVector<QDockWidget*> OsgEarthPlugin::getAdditionalDocks()
     QVector<QDockWidget*> docks;
     if (m_basemapDock)
         docks.append(m_basemapDock);
+    if (m_entityInfo)
+        docks.append(m_entityInfo);
     return docks;
 }
 
@@ -513,6 +532,31 @@ void OsgEarthPlugin::deliverMessage(const QString& topic, const QString& payload
     if (entity.uid.isEmpty())
         return;
 
+
+
+    // Extract raw <detail> element XML for the info widget
+    int detailStart = payload.indexOf(QStringLiteral("<detail"));
+    int detailEnd = payload.indexOf(QStringLiteral("</detail>"), detailStart);
+    if (detailStart >= 0 && detailEnd >= 0) {
+        entity.detailXml = payload.mid(detailStart, detailEnd - detailStart + 9);
+    }
+
+    // Store entity data for the info widget (persists across icon updates)
+    // Keep the existing detailXml if the new entity has none (update message
+    // may omit detail)
+    auto prevIt = m_entityDetails.constFind(entity.uid);
+    if (prevIt != m_entityDetails.constEnd()) {
+        MapEntity merged = entity;
+        if (merged.detailXml.isEmpty())
+            merged.detailXml = prevIt->detailXml;
+        if (merged.callsign.isEmpty())
+            merged.callsign = prevIt->callsign;
+        if (merged.cotType.isEmpty())
+            merged.cotType = prevIt->cotType;
+        m_entityDetails[entity.uid] = merged;
+    } else {
+        m_entityDetails[entity.uid] = entity;
+    }
 
     // Resolve icon: milsymId → 2525B, cotType → 2525B, iconsetPath → iconset
     entity.icon = m_iconResolver.resolveIcon(entity.cotType, entity.iconsetPath,

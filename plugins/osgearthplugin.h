@@ -11,6 +11,7 @@
 #include <QtPlugin>
 
 class BasemapDockWidget;
+class EntityInfoWidget;
 
 class OsgEarthPlugin : public PluginInterface
 {
@@ -56,6 +57,8 @@ private:
     BasemapDockWidget* m_basemapDock;
     bool m_hasInitialPosition;
 
+    EntityInfoWidget* m_entityInfo;
+    QMap<QString, MapEntity> m_entityDetails;
     double m_configLat;
     double m_configLon;
     int m_configZoom;

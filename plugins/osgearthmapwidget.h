@@ -31,6 +31,7 @@ struct MapEntity {
     QImage icon;
     QDateTime staleTime;
     QRgb colorArgb = 0;       // 0 = unset (no tint)
+    QString detailXml;        // raw CoT <detail> XML for info widget
 };
 class OsgEarthMapWidget : public QOpenGLWidget
 {
@@ -59,6 +60,7 @@ public:
 
     QList<MapSource> customSources() const { return m_customSources; }
     void setCustomSources(const QList<MapSource>& sources);
+    void entityClicked(const QString& uid);
     static QImage tintIcon(const QImage& icon, QRgb argb);
 
 signals:
@@ -74,6 +76,7 @@ protected:
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
+    void pickEntity(int x, int y);
 
 private:
     void setupMap();
