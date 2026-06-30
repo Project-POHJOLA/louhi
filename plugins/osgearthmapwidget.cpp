@@ -368,12 +368,29 @@ void OsgEarthMapWidget::setupMap()
     struct PickCallback : public osgEarth::Picker::Callback
     {
         OsgEarthMapWidget* widget;
+        float m_pressX = 0, m_pressY = 0;
+        bool m_pressed = false;
 
         bool accept(const osgGA::GUIEventAdapter& ea,
                     const osgGA::GUIActionAdapter&) override
         {
-            return ea.getEventType() == osgGA::GUIEventAdapter::RELEASE
-                && ea.getButton() == osgGA::GUIEventAdapter::LEFT_MOUSE_BUTTON;
+            if (ea.getEventType() == osgGA::GUIEventAdapter::PUSH) {
+                m_pressX = ea.getX();
+                m_pressY = ea.getY();
+                m_pressed = true;
+                return false;
+            }
+            if (ea.getEventType() == osgGA::GUIEventAdapter::RELEASE) {
+                if (!m_pressed) return false;
+                m_pressed = false;
+                // Only accept clicks (no significant movement)
+                float dx = ea.getX() - m_pressX;
+                float dy = ea.getY() - m_pressY;
+                return (dx * dx + dy * dy) <= 16.0f;  // ~4px threshold
+            }
+            if (ea.getEventType() == osgGA::GUIEventAdapter::DRAG)
+                m_pressed = false;  // user started dragging, abort
+            return false;
         }
 
         void onHit(osgEarth::ObjectID id) override
