@@ -361,11 +361,13 @@ void OsgEarthMapWidget::setupMap()
     m_entityRoot = new osg::Group();
     m_entityRoot->setName("TacticalEntities");
     m_mapNode->addChild(m_entityRoot);
+    qDebug() << "setupMap: entity group created";
 
     // Start stale-check timer (every 5 seconds)
     m_staleTimer = new QTimer(this);
     connect(m_staleTimer, &QTimer::timeout, this, &OsgEarthMapWidget::staleCheck);
     m_staleTimer->start(5000);
+    qDebug() << "setupMap: timer created";
 
     struct PickCallback : public osgEarth::Picker::Callback
     {
@@ -425,12 +427,15 @@ void OsgEarthMapWidget::setupMap()
             qDebug() << "IconClick: MISS";
         }
     };
+    qDebug() << "setupMap: callback struct defined";
 
     auto* cb = new PickCallback;
     cb->widget = this;
     m_picker->setDefaultCallback(cb);
     m_viewer->addEventHandler(m_picker.get());
+    qDebug() << "setupMap: picker configured";
     m_viewer->setSceneData(m_mapNode);
+    qDebug() << "setupMap: setSceneData done";
 }
 
 void OsgEarthMapWidget::rebuildMapLayer()
