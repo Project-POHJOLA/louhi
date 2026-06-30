@@ -369,6 +369,9 @@ void OsgEarthMapWidget::setupMap()
     m_staleTimer->start(5000);
     qDebug() << "setupMap: timer created";
 
+
+    m_picker = new osgEarth::Util::RTTPicker();
+    m_picker->addChild(m_mapNode);
     struct PickCallback : public osgEarth::Picker::Callback
     {
         OsgEarthMapWidget* widget;
@@ -429,15 +432,15 @@ void OsgEarthMapWidget::setupMap()
     };
     qDebug() << "setupMap: callback struct defined";
 
-qDebug() << "setupMap: before new PickCallback";
+    qDebug() << "setupMap: before new PickCallback";
     auto* cb = new PickCallback;
-qDebug() << "setupMap: after new PickCallback";
+    qDebug() << "setupMap: after new PickCallback";
     cb->widget = this;
-qDebug() << "setupMap: after widget assignment";
+    qDebug() << "setupMap: after widget assignment" << "picker addr:" << (void*)m_picker.get();
     m_picker->setDefaultCallback(cb);
-qDebug() << "setupMap: after setDefaultCallback";
+    qDebug() << "setupMap: after setDefaultCallback";
     m_viewer->addEventHandler(m_picker.get());
-qDebug() << "setupMap: after addEventHandler";
+    qDebug() << "setupMap: after addEventHandler";
     qDebug() << "setupMap: picker configured";
     m_viewer->setSceneData(m_mapNode);
     qDebug() << "setupMap: setSceneData done";
