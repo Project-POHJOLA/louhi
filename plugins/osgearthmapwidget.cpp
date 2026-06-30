@@ -203,6 +203,9 @@ void OsgEarthMapWidget::addOrUpdateEntity(const MapEntity& entity)
     m_objectIdToEntity[oid] = entity.uid;
     m_entities[entity.uid] = node;
     m_annotationLayer->addChild(node);
+    qDebug() << "IconClick: tagged uid" << entity.uid << "ObjectID" << oid
+             << "total entities" << m_entities.size()
+             << "total OIDs" << m_objectIdToEntity.size();
 
 }
 
@@ -386,16 +389,22 @@ void OsgEarthMapWidget::setupMap()
                 // Only accept clicks (no significant movement)
                 float dx = ea.getX() - m_pressX;
                 float dy = ea.getY() - m_pressY;
-                return (dx * dx + dy * dy) <= 16.0f;  // ~4px threshold
+                bool isClick = (dx * dx + dy * dy) <= 16.0f;
+                qDebug() << "IconClick: RELEASE at" << ea.getX() << ea.getY()
+                         << "dx" << dx << "dy" << dy << "isClick" << isClick
+                         << "entities" << widget->m_objectIdToEntity.size();
+                return isClick;
             }
-            if (ea.getEventType() == osgGA::GUIEventAdapter::DRAG)
-                m_pressed = false;  // user started dragging, abort
+            if (ea.getEventType() == osgGA::GUIEventAdapter::DRAG) {
+                qDebug() << "IconClick: DRAG";
+                m_pressed = false;
+            }
             return false;
         }
 
         void onHit(osgEarth::ObjectID id) override
         {
-            qDebug() << "IconClick: ObjectID" << id;
+            qDebug() << "IconClick: HIT ObjectID" << id;
             auto it = widget->m_objectIdToEntity.constFind(id);
             if (it != widget->m_objectIdToEntity.constEnd()) {
                 qDebug() << "IconClick: matched uid" << it.value();
@@ -414,7 +423,7 @@ void OsgEarthMapWidget::setupMap()
 
         void onMiss() override
         {
-            qDebug() << "IconClick: miss";
+            qDebug() << "IconClick: MISS";
         }
     };
 
