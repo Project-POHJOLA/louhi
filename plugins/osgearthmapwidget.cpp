@@ -607,12 +607,10 @@ void OsgEarthMapWidget::wheelEvent(QWheelEvent* event)
     if (m_viewer.valid()) {
         osgGA::EventQueue* eq = m_viewer->getEventQueue();
         if (eq) {
-            // Post mouse position with flipped Y (OSG bottom-up) so the
-            // EarthManipulator's zoomToMouse terrain intersection is correct.
-            // The next real mouseMotion event will restore the state before
-            // any drag begins — no perceptible panning glitch.
+            // Use raw Qt Y (no flip). GraphicsWindowEmbedded's camera
+            // containment test expects top-left origin coordinates.
             eq->mouseMotion(qRound(event->position().x()),
-                            height() - qRound(event->position().y()));
+                            qRound(event->position().y()));
             if (event->angleDelta().y() > 0) {
                 eq->mouseScroll(osgGA::GUIEventAdapter::SCROLL_UP);
             } else {
