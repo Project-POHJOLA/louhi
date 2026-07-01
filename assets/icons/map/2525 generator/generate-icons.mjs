@@ -134,27 +134,34 @@ function svgTextToPath(svgString) {
     const glyphPath = font.getPath(text, textX, baselineY, fontSize);
     const pathData  = glyphPath.toPathData();
 
-    // ── build <path> element ──
+    // ── build <g> with two paths for outside-only stroke ──
     const ns = 'http://www.w3.org/2000/svg';
-    const pathEl = doc.createElementNS(ns, 'path');
-    pathEl.setAttribute('d', pathData);
-
-    // Drop stroke: the thin black border (default 1px in viewBox coords)
-    // anti-aliases into a grey fuzz at 24-32px rendering sizes.
-    pathEl.setAttribute('stroke', 'none');
-
-    // Boost near-white fills to pure white for max small-size contrast.
+    const g = doc.createElementNS(ns, 'g');
+    // Bottom layer: outline (stroke only, no fill) — stroke centered on path,
+    // so inner half gets covered by the fill layer on top.
+    const outlineEl = doc.createElementNS(ns, 'path');
+    outlineEl.setAttribute('d', pathData);
+    outlineEl.setAttribute('fill', 'none');
+    outlineEl.setAttribute('stroke', 'black');
+    outlineEl.setAttribute('stroke-width', '2.5');
+    outlineEl.setAttribute('stroke-linejoin', 'round');
+    g.appendChild(outlineEl);
+    // Top layer: fill — covers inner half of the stroke, leaving only the
+    // outside border visible. Pure white for near-white fills.
+    const fillEl = doc.createElementNS(ns, 'path');
+    fillEl.setAttribute('d', pathData);
+    fillEl.setAttribute('stroke', 'none');
     if (fillAttr && fillAttr !== 'none') {
       const m = fillAttr.match(/rgb\(\s*(\d+),\s*(\d+),\s*(\d+)\)/);
       if (m) {
         const lum = 0.299 * parseInt(m[1]) + 0.587 * parseInt(m[2]) + 0.114 * parseInt(m[3]);
-        pathEl.setAttribute('fill', lum > 200 ? 'white' : fillAttr);
+        fillEl.setAttribute('fill', lum > 200 ? 'white' : fillAttr);
       } else {
-        pathEl.setAttribute('fill', fillAttr);
+        fillEl.setAttribute('fill', fillAttr);
       }
     }
-
-    el.parentNode.replaceChild(pathEl, el);
+    g.appendChild(fillEl);
+    el.parentNode.replaceChild(g, el);
   }
 
   return new XMLSerializer().serializeToString(doc);
