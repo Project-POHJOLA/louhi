@@ -323,7 +323,7 @@ void OsgEarthMapWidget::initializeGL()
 
     osgEarth::Util::EarthManipulator* manip = new osgEarth::Util::EarthManipulator();
     manip->getSettings()->setMouseSensitivity(0.005);
-    manip->getSettings()->setZoomToMouse(false);
+    manip->getSettings()->setZoomToMouse(true);
     m_viewer->setCameraManipulator(manip);
 
     m_viewer->realize();
@@ -546,7 +546,8 @@ void OsgEarthMapWidget::mousePressEvent(QMouseEvent* event)
             if (event->button() == Qt::LeftButton) button = 1;
             else if (event->button() == Qt::MiddleButton) button = 2;
             else if (event->button() == Qt::RightButton) button = 3;
-            eq->mouseButtonPress(qRound(event->position().x()), qRound(event->position().y()), button);
+            eq->mouseButtonPress(qRound(event->position().x()),
+                                 height() - qRound(event->position().y()), button);
         }
     }
     event->accept();
@@ -557,13 +558,13 @@ void OsgEarthMapWidget::mouseMoveEvent(QMouseEvent* event)
     if (m_viewer.valid()) {
         osgGA::EventQueue* eq = m_viewer->getEventQueue();
         if (eq) {
-            eq->mouseMotion(qRound(event->position().x()), qRound(event->position().y()));
+            eq->mouseMotion(qRound(event->position().x()),
+                            height() - qRound(event->position().y()));
         }
     }
     update();
     event->accept();
 }
-
 void OsgEarthMapWidget::mouseReleaseEvent(QMouseEvent* event)
 {
     setFocus();
@@ -574,12 +575,12 @@ void OsgEarthMapWidget::mouseReleaseEvent(QMouseEvent* event)
             if (event->button() == Qt::LeftButton) button = 1;
             else if (event->button() == Qt::MiddleButton) button = 2;
             else if (event->button() == Qt::RightButton) button = 3;
-            eq->mouseButtonRelease(qRound(event->position().x()), qRound(event->position().y()), button);
+            eq->mouseButtonRelease(qRound(event->position().x()),
+                                   height() - qRound(event->position().y()), button);
         }
 
         // Manual GPU-based pick (EntityIDPicker) with Y flipped to Qt→OSG.
-        // Do NOT flip in the event queue — the EarthManipulator needs Qt Y.
-        // Only the RTT sampling in pick() needs OpenGL Y (bottom = 0).
+        // Events are now also flipped in the queue for consistent OSG bottom-up Y.
         if (event->button() == Qt::LeftButton) {
             int flipY = height() - qRound(event->position().y());
             m_picker->pickAt(m_viewer, qRound(event->position().x()), flipY,
@@ -606,13 +607,17 @@ void OsgEarthMapWidget::wheelEvent(QWheelEvent* event)
     if (m_viewer.valid()) {
         osgGA::EventQueue* eq = m_viewer->getEventQueue();
         if (eq) {
+            // Set mouse position first so zoom-to-mouse uses correct OSG coords
+            eq->mouseMotion(qRound(event->position().x()),
+                            height() - qRound(event->position().y()));
             if (event->angleDelta().y() > 0) {
-                eq->mouseScroll(osgGA::GUIEventAdapter::SCROLL_DOWN);
-            } else {
                 eq->mouseScroll(osgGA::GUIEventAdapter::SCROLL_UP);
+            } else {
+                eq->mouseScroll(osgGA::GUIEventAdapter::SCROLL_DOWN);
             }
         }
     }
     update();
     event->accept();
 }
+
