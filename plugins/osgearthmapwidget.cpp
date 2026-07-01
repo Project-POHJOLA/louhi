@@ -323,7 +323,7 @@ void OsgEarthMapWidget::initializeGL()
 
     osgEarth::Util::EarthManipulator* manip = new osgEarth::Util::EarthManipulator();
     manip->getSettings()->setMouseSensitivity(0.005);
-    manip->getSettings()->setZoomToMouse(true);
+    manip->getSettings()->setZoomToMouse(false);
     m_viewer->setCameraManipulator(manip);
 
     m_viewer->realize();
@@ -547,7 +547,7 @@ void OsgEarthMapWidget::mousePressEvent(QMouseEvent* event)
             else if (event->button() == Qt::MiddleButton) button = 2;
             else if (event->button() == Qt::RightButton) button = 3;
             eq->mouseButtonPress(qRound(event->position().x()),
-                                 height() - qRound(event->position().y()), button);
+                                 qRound(event->position().y()), button);
         }
     }
     event->accept();
@@ -559,7 +559,7 @@ void OsgEarthMapWidget::mouseMoveEvent(QMouseEvent* event)
         osgGA::EventQueue* eq = m_viewer->getEventQueue();
         if (eq) {
             eq->mouseMotion(qRound(event->position().x()),
-                            height() - qRound(event->position().y()));
+                            qRound(event->position().y()));
         }
     }
     update();
@@ -576,11 +576,11 @@ void OsgEarthMapWidget::mouseReleaseEvent(QMouseEvent* event)
             else if (event->button() == Qt::MiddleButton) button = 2;
             else if (event->button() == Qt::RightButton) button = 3;
             eq->mouseButtonRelease(qRound(event->position().x()),
-                                   height() - qRound(event->position().y()), button);
+                                   qRound(event->position().y()), button);
         }
 
-        // Manual GPU-based pick (EntityIDPicker) with Y flipped to Qt→OSG.
-        // Events are now also flipped in the queue for consistent OSG bottom-up Y.
+        // Do NOT flip in the event queue — the EarthManipulator needs Qt Y.
+        // Only the RTT sampling in pick() needs OpenGL Y (bottom = 0).
         if (event->button() == Qt::LeftButton) {
             int flipY = height() - qRound(event->position().y());
             m_picker->pickAt(m_viewer, qRound(event->position().x()), flipY,
@@ -604,19 +604,81 @@ void OsgEarthMapWidget::mouseReleaseEvent(QMouseEvent* event)
 
 void OsgEarthMapWidget::wheelEvent(QWheelEvent* event)
 {
-    if (m_viewer.valid()) {
-        osgGA::EventQueue* eq = m_viewer->getEventQueue();
-        if (eq) {
-            // Set mouse position first so zoom-to-mouse uses correct OSG coords
-            eq->mouseMotion(qRound(event->position().x()),
-                            height() - qRound(event->position().y()));
-            if (event->angleDelta().y() > 0) {
-                eq->mouseScroll(osgGA::GUIEventAdapter::SCROLL_UP);
-            } else {
-                eq->mouseScroll(osgGA::GUIEventAdapter::SCROLL_DOWN);
-            }
-        }
+    if (!m_viewer.valid()) {
+        event->accept();
+        return;
     }
+
+    osgEarth::Util::EarthManipulator* manip =
+        dynamic_cast<osgEarth::Util::EarthManipulator*>(m_viewer->getCameraManipulator());
+    if (!manip) {
+        event->accept();
+        return;
+    }
+
+    const osgEarth::Viewpoint vp = manip->getViewpoint();
+    if (!vp.focalPoint().isSet() || !vp.range().isSet()) {
+        event->accept();
+        return;
+    }
+
+    // Zoom factor: positive angleDelta = scroll away = zoom out
+    double factor = (event->angleDelta().y() > 0) ? 1.5 : (1.0 / 1.5);
+    double oldRange = vp.range()->as(osgEarth::Units::METERS);
+    double newRange = oldRange * factor;
+    newRange = qBound(10.0, newRange, 1.0e12);
+
+    // Compute terrain point under mouse (Y flipped for OSG bottom-up)
+    int mx = qRound(event->position().x());
+    int flipY = height() - qRound(event->position().y());
+
+    osgUtil::LineSegmentIntersector::Intersections results;
+    osg::Vec3d targetEcef;
+    bool onTerrain = m_viewer->computeIntersections(mx, flipY, results);
+    if (onTerrain) {
+        targetEcef = results.begin()->getWorldIntersectPoint();
+    }
+
+    osgEarth::Viewpoint newVp = vp;
+
+    if (onTerrain && m_mapNode.valid()) {
+        const osgEarth::Ellipsoid& ell =
+            m_mapNode->getMapSRS()->getEllipsoid();
+
+        // Convert current focal point from geodetic to ECEF
+        osg::Vec3d oldCenterLla(
+            vp.focalPoint()->x(),   // lon
+            vp.focalPoint()->y(),   // lat
+            vp.focalPoint()->z()    // alt
+        );
+        osg::Vec3d oldCenterEcef = ell.geodeticToGeocentric(oldCenterLla);
+
+        // Spherical interpolation: rotate center toward target
+        double ratio = 1.0 - newRange / oldRange;
+        osg::Quat rotCenterToTarget;
+        rotCenterToTarget.makeRotate(oldCenterEcef, targetEcef);
+        osg::Quat rot;
+        rot.slerp(ratio, osg::Quat(), rotCenterToTarget);
+        osg::Vec3d newCenterEcef = rot * oldCenterEcef;
+
+        // Convert back to geodetic
+        osg::Vec3d newCenterLla = ell.geocentricToGeodetic(newCenterEcef);
+        newVp.focalPoint() = newCenterLla;
+    }
+
+    newVp.range() = newRange;
+    manip->setViewpoint(newVp, 0.2);
+
+    // Update stored center/zoom
+    if (newVp.focalPoint().isSet()) {
+        m_centerLon = newVp.focalPoint()->x();
+        m_centerLat = newVp.focalPoint()->y();
+    }
+    m_zoom = static_cast<int>(qRound(1.0 + qLn(20000000.0 / newRange) / qLn(2.0)));
+    m_zoom = qBound(1, m_zoom, 20);
+    emit zoomChanged(m_zoom);
+    emit centerChanged(m_centerLat, m_centerLon);
+
     update();
     event->accept();
 }
