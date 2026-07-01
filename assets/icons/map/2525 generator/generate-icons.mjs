@@ -94,7 +94,7 @@ function svgTextToPath(svgString, isCivilian = false) {
     const x        = parseFloat(el.getAttribute('x') || '0');
     const y        = parseFloat(el.getAttribute('y') || '0');
     const baseSize = parseFloat(el.getAttribute('font-size') || '12');
-    const fontSize = baseSize * (isCivilian ? 1.4 : 1);
+    const fontSize = baseSize * (isCivilian ? 1.2 : 1);
     const fontWeight = (el.getAttribute('font-weight') || 'normal').toLowerCase();
     const anchor   = (el.getAttribute('text-anchor') || 'start').toLowerCase();
     const baseline = (el.getAttribute('dominant-baseline') || 'auto').toLowerCase();
@@ -154,7 +154,7 @@ function svgTextToPath(svgString, isCivilian = false) {
       outlineEl.setAttribute('d', pathData);
       outlineEl.setAttribute('fill', 'none');
       outlineEl.setAttribute('stroke', 'black');
-      outlineEl.setAttribute('stroke-width', '5');
+      outlineEl.setAttribute('stroke-width', '6');
       outlineEl.setAttribute('stroke-linejoin', 'round');
       g.appendChild(outlineEl);
       const fillEl = doc.createElementNS(ns, 'path');
