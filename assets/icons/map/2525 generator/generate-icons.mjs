@@ -138,9 +138,21 @@ function svgTextToPath(svgString) {
     const ns = 'http://www.w3.org/2000/svg';
     const pathEl = doc.createElementNS(ns, 'path');
     pathEl.setAttribute('d', pathData);
-    if (fillAttr    && fillAttr    !== 'none') pathEl.setAttribute('fill', fillAttr);
-    if (strokeAttr  && strokeAttr  !== 'none') pathEl.setAttribute('stroke', strokeAttr);
-    // stroke-width from original text (milsymbol uses stroke="none" on text, so skip)
+
+    // Drop stroke: the thin black border (default 1px in viewBox coords)
+    // anti-aliases into a grey fuzz at 24-32px rendering sizes.
+    pathEl.setAttribute('stroke', 'none');
+
+    // Boost near-white fills to pure white for max small-size contrast.
+    if (fillAttr && fillAttr !== 'none') {
+      const m = fillAttr.match(/rgb\(\s*(\d+),\s*(\d+),\s*(\d+)\)/);
+      if (m) {
+        const lum = 0.299 * parseInt(m[1]) + 0.587 * parseInt(m[2]) + 0.114 * parseInt(m[3]);
+        pathEl.setAttribute('fill', lum > 200 ? 'white' : fillAttr);
+      } else {
+        pathEl.setAttribute('fill', fillAttr);
+      }
+    }
 
     el.parentNode.replaceChild(pathEl, el);
   }
