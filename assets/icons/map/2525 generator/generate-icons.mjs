@@ -153,7 +153,7 @@ function svgTextToPath(svgString, isCivilian = false) {
       outlineEl.setAttribute('d', pathData);
       outlineEl.setAttribute('fill', 'none');
       outlineEl.setAttribute('stroke', 'black');
-      outlineEl.setAttribute('stroke-width', '3');
+      outlineEl.setAttribute('stroke-width', '5');
       outlineEl.setAttribute('stroke-linejoin', 'round');
       g.appendChild(outlineEl);
       const fillEl = doc.createElementNS(ns, 'path');
