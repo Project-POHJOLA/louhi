@@ -630,49 +630,8 @@ void OsgEarthMapWidget::wheelEvent(QWheelEvent* event)
     double newRange = oldRange * factor;
     newRange = qBound(10.0, newRange, 1.0e12);
 
-    // Compute terrain point under mouse using OSG window coords.
-    // getWorldCoordsUnderMouse -> intersectMouse -> getCameraContainingPosition
-    // accepts raw coords (viewport at 0,0). computeWindowMatrix needs bottom-
-    // left origin, so we flip Y: flipY = height() - Qt_y.
-    // Camera containment (0 <= local_y < h) holds for 0 <= flipY < height()
-    // — passes for all but the very top pixel, where it falls back correctly.
-    int mx = qRound(event->position().x());
-    int flipY = height() - qRound(event->position().y());
-
     osgEarth::Viewpoint newVp = vp;
-    osg::Vec3d targetEcef;
-    if (m_mapNode->getTerrain()->getWorldCoordsUnderMouse(
-            m_viewer.get(), mx, flipY, targetEcef))
-    {
-        const osgEarth::Ellipsoid& ell =
-            m_mapNode->getMapSRS()->getEllipsoid();
-
-        osg::Vec3d oldCenterLla(
-            vp.focalPoint()->x(),   // lon (deg)
-            vp.focalPoint()->y(),   // lat (deg)
-            vp.focalPoint()->z()    // alt (m)
-        );
-        osg::Vec3d oldCenterEcef = ell.geodeticToGeocentric(oldCenterLla);
-
-        // Spherical interpolation: ratio > 0 moves toward target (zoom in).
-        double ratio = 1.0 - newRange / oldRange;
-
-        osg::Quat rotCenterToTarget;
-        rotCenterToTarget.makeRotate(oldCenterEcef, targetEcef);
-
-        osg::Quat rot;
-        rot.slerp(ratio, osg::Quat(), rotCenterToTarget);
-
-        osg::Vec3d newCenterEcef = rot * oldCenterEcef;
-
-        osg::Vec3d newCenterLla = ell.geocentricToGeodetic(newCenterEcef);
-        newVp.focalPoint() = osgEarth::GeoPoint(
-            m_mapNode->getMapSRS(),
-            newCenterLla.x(),   // lon (deg)
-            newCenterLla.y(),   // lat (deg)
-            newCenterLla.z());  // alt (m)
-    }
-
+    // ── Center-only zoom (no mouse-follow) to test setViewpoint stability ──
     newVp.range() = osgEarth::Distance(newRange, osgEarth::Units::METERS);
     newVp.heading() = vp.heading();
     newVp.pitch() = vp.pitch();
