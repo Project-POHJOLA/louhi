@@ -322,8 +322,8 @@ void OsgEarthMapWidget::initializeGL()
     setupMap();
 
     osgEarth::Util::EarthManipulator* manip = new osgEarth::Util::EarthManipulator();
-    manip->getSettings()->setMouseSensitivity(0.004);
-    manip->getSettings()->setZoomToMouse(false);
+    manip->getSettings()->setMouseSensitivity(0.007);
+    manip->getSettings()->setZoomToMouse(true);
     m_viewer->setCameraManipulator(manip);
 
     m_viewer->realize();
