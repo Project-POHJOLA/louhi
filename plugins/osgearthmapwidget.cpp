@@ -663,10 +663,14 @@ void OsgEarthMapWidget::wheelEvent(QWheelEvent* event)
 
         // Convert back to geodetic
         osg::Vec3d newCenterLla = ell.geocentricToGeodetic(newCenterEcef);
-        newVp.focalPoint() = newCenterLla;
+        newVp.focalPoint() = osgEarth::GeoPoint(
+            m_mapNode->getMapSRS(),
+            newCenterLla.x(),
+            newCenterLla.y(),
+            newCenterLla.z());
     }
 
-    newVp.range() = newRange;
+    newVp.range() = osgEarth::Distance(newRange, osgEarth::Units::METERS);
     manip->setViewpoint(newVp, 0.2);
 
     // Update stored center/zoom
