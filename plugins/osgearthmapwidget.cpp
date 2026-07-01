@@ -323,7 +323,7 @@ void OsgEarthMapWidget::initializeGL()
 
     osgEarth::Util::EarthManipulator* manip = new osgEarth::Util::EarthManipulator();
     manip->getSettings()->setMouseSensitivity(0.005);
-    manip->getSettings()->setZoomToMouse(false);
+    manip->getSettings()->setZoomToMouse(true);
     m_viewer->setCameraManipulator(manip);
 
     m_viewer->realize();
@@ -604,79 +604,22 @@ void OsgEarthMapWidget::mouseReleaseEvent(QMouseEvent* event)
 
 void OsgEarthMapWidget::wheelEvent(QWheelEvent* event)
 {
-    if (!m_viewer.valid()) {
-        event->accept();
-        return;
+    if (m_viewer.valid()) {
+        osgGA::EventQueue* eq = m_viewer->getEventQueue();
+        if (eq) {
+            // Post mouse position with flipped Y (OSG bottom-up) so the
+            // EarthManipulator's zoomToMouse terrain intersection is correct.
+            // The next real mouseMotion event will restore the state before
+            // any drag begins — no perceptible panning glitch.
+            eq->mouseMotion(qRound(event->position().x()),
+                            height() - qRound(event->position().y()));
+            if (event->angleDelta().y() > 0) {
+                eq->mouseScroll(osgGA::GUIEventAdapter::SCROLL_UP);
+            } else {
+                eq->mouseScroll(osgGA::GUIEventAdapter::SCROLL_DOWN);
+            }
+        }
     }
-
-    osgEarth::Util::EarthManipulator* manip =
-        dynamic_cast<osgEarth::Util::EarthManipulator*>(m_viewer->getCameraManipulator());
-    if (!manip || !m_mapNode.valid()) {
-        event->accept();
-        return;
-    }
-
-    const osgEarth::Viewpoint vp = manip->getViewpoint();
-    if (!vp.focalPoint().isSet() || !vp.range().isSet()) {
-        event->accept();
-        return;
-    }
-
-    // Zoom factor: positive angleDelta = scroll away = zoom out
-    double factor = (event->angleDelta().y() > 0) ? 1.5 : (1.0 / 1.5);
-    double oldRange = vp.range()->as(osgEarth::Units::METERS);
-    double newRange = oldRange * factor;
-    newRange = qBound(10.0, newRange, 1.0e12);
-
-    // Compute terrain point under mouse using osgEarth's terrain intersector
-    // (more reliable than view->computeIntersections for terrain)
-    int mx = qRound(event->position().x());
-    int flipY = height() - qRound(event->position().y());
-
-    osgEarth::Viewpoint newVp = vp;
-    osg::Vec3d targetEcef;
-    if (m_mapNode->getTerrain()->getWorldCoordsUnderMouse(
-            m_viewer.get(), mx, flipY, targetEcef))
-    {
-        // Spherical interpolation: rotate center toward target
-        const osgEarth::Ellipsoid& ell =
-            m_mapNode->getMapSRS()->getEllipsoid();
-
-        osg::Vec3d oldCenterLla(
-            vp.focalPoint()->x(),   // lon
-            vp.focalPoint()->y(),   // lat
-            vp.focalPoint()->z()    // alt
-        );
-        osg::Vec3d oldCenterEcef = ell.geodeticToGeocentric(oldCenterLla);
-
-        double ratio = 1.0 - newRange / oldRange;
-        osg::Quat rotCenterToTarget;
-        rotCenterToTarget.makeRotate(oldCenterEcef, targetEcef);
-        osg::Quat rot;
-        rot.slerp(ratio, osg::Quat(), rotCenterToTarget);
-        osg::Vec3d newCenterEcef = rot * oldCenterEcef;
-
-        osg::Vec3d newCenterLla = ell.geocentricToGeodetic(newCenterEcef);
-        newVp.focalPoint() = osgEarth::GeoPoint(
-            m_mapNode->getMapSRS(),
-            newCenterLla.x(),
-            newCenterLla.y(),
-            newCenterLla.z());
-    }
-
-    newVp.range() = osgEarth::Distance(newRange, osgEarth::Units::METERS);
-    manip->setViewpoint(newVp, 0.2);
-
-    // Update stored center/zoom
-    if (newVp.focalPoint().isSet()) {
-        m_centerLon = newVp.focalPoint()->x();
-        m_centerLat = newVp.focalPoint()->y();
-    }
-    m_zoom = static_cast<int>(qRound(1.0 + qLn(20000000.0 / newRange) / qLn(2.0)));
-    m_zoom = qBound(1, m_zoom, 20);
-    emit zoomChanged(m_zoom);
-    emit centerChanged(m_centerLat, m_centerLon);
-
     update();
     event->accept();
 }
