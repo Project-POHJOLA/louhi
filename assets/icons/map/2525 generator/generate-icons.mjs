@@ -79,7 +79,7 @@ function toBasePattern(sidcLower) {
 }
 
 // ── text-to-path conversion ────────────────────────────────────────────────
-function svgTextToPath(svgString) {
+function svgTextToPath(svgString, isCivilian = false) {
   const doc = new DOMParser().parseFromString(svgString, 'image/svg+xml');
   const textElements = doc.getElementsByTagName('text');
 
@@ -134,34 +134,44 @@ function svgTextToPath(svgString) {
     const glyphPath = font.getPath(text, textX, baselineY, fontSize);
     const pathData  = glyphPath.toPathData();
 
-    // ── build <g> with two paths for outside-only stroke ──
+    // ── decide single vs two-layer path ──
+    // Two-layer (outline + fill) for civilian-vehicle CIV text:
+    // only light fills get the outside-only black border.
     const ns = 'http://www.w3.org/2000/svg';
-    const g = doc.createElementNS(ns, 'g');
-    // Bottom layer: outline (stroke only, no fill) — stroke centered on path,
-    // so inner half gets covered by the fill layer on top.
-    const outlineEl = doc.createElementNS(ns, 'path');
-    outlineEl.setAttribute('d', pathData);
-    outlineEl.setAttribute('fill', 'none');
-    outlineEl.setAttribute('stroke', 'black');
-    outlineEl.setAttribute('stroke-width', '2.5');
-    outlineEl.setAttribute('stroke-linejoin', 'round');
-    g.appendChild(outlineEl);
-    // Top layer: fill — covers inner half of the stroke, leaving only the
-    // outside border visible. Pure white for near-white fills.
-    const fillEl = doc.createElementNS(ns, 'path');
-    fillEl.setAttribute('d', pathData);
-    fillEl.setAttribute('stroke', 'none');
+    let isLightText = false;
     if (fillAttr && fillAttr !== 'none') {
       const m = fillAttr.match(/rgb\(\s*(\d+),\s*(\d+),\s*(\d+)\)/);
       if (m) {
         const lum = 0.299 * parseInt(m[1]) + 0.587 * parseInt(m[2]) + 0.114 * parseInt(m[3]);
-        fillEl.setAttribute('fill', lum > 200 ? 'white' : fillAttr);
-      } else {
-        fillEl.setAttribute('fill', fillAttr);
+        isLightText = lum > 200;
       }
     }
-    g.appendChild(fillEl);
-    el.parentNode.replaceChild(g, el);
+    if (isCivilian && isLightText) {
+      // Two-layer: bottom = outline, top = fill (covers inner stroke half)
+      const g = doc.createElementNS(ns, 'g');
+      const outlineEl = doc.createElementNS(ns, 'path');
+      outlineEl.setAttribute('d', pathData);
+      outlineEl.setAttribute('fill', 'none');
+      outlineEl.setAttribute('stroke', 'black');
+      outlineEl.setAttribute('stroke-width', '3');
+      outlineEl.setAttribute('stroke-linejoin', 'round');
+      g.appendChild(outlineEl);
+      const fillEl = doc.createElementNS(ns, 'path');
+      fillEl.setAttribute('d', pathData);
+      fillEl.setAttribute('stroke', 'none');
+      fillEl.setAttribute('fill', 'white');
+      g.appendChild(fillEl);
+      el.parentNode.replaceChild(g, el);
+    } else {
+      // Single path: no outline, just fill
+      const pathEl = doc.createElementNS(ns, 'path');
+      pathEl.setAttribute('d', pathData);
+      pathEl.setAttribute('stroke', 'none');
+      if (fillAttr && fillAttr !== 'none') {
+        pathEl.setAttribute('fill', fillAttr);
+      }
+      el.parentNode.replaceChild(pathEl, el);
+    }
   }
 
   return new XMLSerializer().serializeToString(doc);
@@ -169,14 +179,17 @@ function svgTextToPath(svgString) {
 
 // ── generate one SIDC → SVG ────────────────────────────────────────────────
 function renderSidc(sidcUpper) {
+  // Detect civilian vehicle SIDCs: s?apc* or s?gpevc* (all affiliations)
+  const sidcLower = sidcUpper.toLowerCase();
+  const isCivilian = /^s.apc/.test(sidcLower) || /^s.gpevc/.test(sidcLower);
   // milsymbol.js v3 — 2525C standard
   const sym = new ms.Symbol(sidcUpper, {
     size:     35,
     standard: '2525C',
   });
   const svg = sym.asSVG();
-  // Convert text to paths
-  return svgTextToPath(svg);
+  // Convert text to paths (with outside-only border for civilian CIV text)
+  return svgTextToPath(svg, isCivilian);
 }
 
 // ── format duration ────────────────────────────────────────────────────────
