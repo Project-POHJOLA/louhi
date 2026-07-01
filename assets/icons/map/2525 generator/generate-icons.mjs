@@ -93,7 +93,8 @@ function svgTextToPath(svgString, isCivilian = false) {
 
     const x        = parseFloat(el.getAttribute('x') || '0');
     const y        = parseFloat(el.getAttribute('y') || '0');
-    const fontSize = parseFloat(el.getAttribute('font-size') || '12');
+    const baseSize = parseFloat(el.getAttribute('font-size') || '12');
+    const fontSize = baseSize * (isCivilian ? 1.4 : 1);
     const fontWeight = (el.getAttribute('font-weight') || 'normal').toLowerCase();
     const anchor   = (el.getAttribute('text-anchor') || 'start').toLowerCase();
     const baseline = (el.getAttribute('dominant-baseline') || 'auto').toLowerCase();
