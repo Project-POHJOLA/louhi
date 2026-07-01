@@ -18,9 +18,8 @@
 #include <osgEarth/Map>
 #include <osgEarth/ScreenSpaceLayout>
 #include <osgEarth/PlaceNode>
-#include <osgEarth/RTTPicker>
-#include <osgEarth/ObjectIndex>
-
+#include <osgEarth/ObjectIDPicker>
+class EntityIDPicker;
 struct MapEntity {
     QString uid;
     double lat = 0.0;
@@ -65,7 +64,7 @@ public:
     void setCustomSources(const QList<MapSource>& sources);
     static QImage tintIcon(const QImage& icon, QRgb argb);
 
-    // Called by the RTTPicker callback when an object is clicked
+    // Called by the ObjectIDPicker callback when an object is clicked
     void handleIconClick(const QString& uid) { emit entityClicked(uid); }
 
 signals:
@@ -91,20 +90,18 @@ private:
     osg::ref_ptr<osgViewer::Viewer> m_viewer;
     osg::ref_ptr<osgEarth::MapNode> m_mapNode;
     void staleCheck();
-
     osg::ref_ptr<osg::Group> m_entityRoot;
     QMap<QString, osg::ref_ptr<osgEarth::PlaceNode>> m_entities;
     QMap<QString, QDateTime> m_staleTimes;
     QMap<QString, osg::ref_ptr<osg::Image>> m_cachedOsgIcons;
     QMap<QString, QImage> m_entityIcons;
-
-    // ObjectID tracking for GPU-based picking
-    QMap<osgEarth::ObjectID, QString> m_objectIdToEntity;
-    osg::ref_ptr<osgEarth::Util::RTTPicker> m_picker;
-
     QTimer* m_staleTimer;
-    osg::ref_ptr<osgEarth::Map> m_map;
 
+    // ObjectID tracking for ObjectIDPicker picking
+    QMap<osgEarth::ObjectID, QString> m_objectIdToEntity;
+    osg::ref_ptr<EntityIDPicker> m_picker;
+
+    osg::ref_ptr<osgEarth::Map> m_map;
     double m_centerLat;
     double m_centerLon;
     int m_zoom;

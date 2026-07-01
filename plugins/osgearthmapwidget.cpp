@@ -10,6 +10,10 @@
 #include <osgUtil/LineSegmentIntersector>
 #include <osgUtil/IntersectionVisitor>
 
+#include <osg/Texture2D>
+#include <osg/Geometry>
+#include <osg/AutoTransform>
+#include <osgEarth/GeoTransform>
 #include <osg/Notify>
 #include <osg/Geode>
 #include <osg/ShapeDrawable>
@@ -197,16 +201,12 @@ void OsgEarthMapWidget::addOrUpdateEntity(const MapEntity& entity)
         m_cachedOsgIcons[entity.uid] = img;
         node->setIconImage(img);
     }
-    // Tag the PlaceNode with an ObjectID for GPU-based picking
+    m_entities[entity.uid] = node;
+    // Tag the PlaceNode with an ObjectID for GPU-based RTTPicker picking
     osgEarth::ObjectID oid = osgEarth::Registry::objectIndex()->insert(node);
     osgEarth::Registry::objectIndex()->tagNode(node, oid);
     m_objectIdToEntity[oid] = entity.uid;
-    m_entities[entity.uid] = node;
     m_entityRoot->addChild(node);
-    qDebug() << "IconClick: tagged uid" << entity.uid << "ObjectID" << oid
-             << "total entities" << m_entities.size()
-             << "total OIDs" << m_objectIdToEntity.size();
-
 }
 
 void OsgEarthMapWidget::clearEntities()
@@ -261,10 +261,9 @@ void OsgEarthMapWidget::setIconSize(int size)
 void OsgEarthMapWidget::setDeclutteringEnabled(bool enabled)
 {
     m_declutteringEnabled = enabled;
-    if (m_mapInitialized) {
-        osgEarth::ScreenSpaceLayout::setDeclutteringEnabled(enabled);
+    osgEarth::ScreenSpaceLayout::setDeclutteringEnabled(enabled);
+    if (m_mapInitialized)
         update();
-    }
 }
 void OsgEarthMapWidget::staleCheck()
 {
@@ -301,10 +300,22 @@ void OsgEarthMapWidget::initializeGL()
     osg::ref_ptr<osgViewer::GraphicsWindowEmbedded> gw =
         new osgViewer::GraphicsWindowEmbedded(traits.get());
 
+    // No-op swap callback: osgViewer::frame() must NOT swap buffers because
+    // QOpenGLWidget manages the buffer swap/composite at the end of the paint
+    // cycle. Without this, the viewer's internal swapBuffers() followed by Qt's
+    // swap causes a visible black flash on every click/render.
+    struct NoSwap : public osg::GraphicsContext::SwapCallback {
+        void swapBuffersImplementation(osg::GraphicsContext*) override {}
+    };
+    gw->setSwapCallback(new NoSwap);
     m_viewer->getCamera()->setGraphicsContext(gw);
     m_viewer->getCamera()->setViewport(new osg::Viewport(0, 0, width(), height()));
     m_viewer->getCamera()->setProjectionMatrixAsPerspective(45.0, 1.0, 1.0, 10000000.0);
     m_viewer->getCamera()->setNearFarRatio(0.00001);
+    // Don't clear color buffer on each frame — the terrain fills the whole
+    // viewport, so clearing to black first just causes a visible flash when the
+    // RTTPicker's pixel readback triggers a GPU flush mid-frame.
+    m_viewer->getCamera()->setClearMask(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
     m_viewer->setThreadingModel(osgViewer::Viewer::SingleThreaded);
 
@@ -326,6 +337,24 @@ void OsgEarthMapWidget::initializeGL()
     updateCamera();
 }
 
+
+// ── Custom picker that exposes protected pick()/setupRTT() methods ──
+// Avoids EventRouter auto-registration from setView(), which passes raw Qt Y
+// coordinates to pick() without flipping — breaking Y mapping vs the viewport.
+// By calling pickAt() manually, we flip Y (Qt → OpenGL) before sampling the RTT.
+class EntityIDPicker : public osgEarth::Util::ObjectIDPicker
+{
+public:
+    void setupPicker(osgViewer::View* view, osg::Node* graph) {
+        _view = view;
+        if (graph) _graph = graph;
+        setupRTT(view);
+    }
+
+    void pickAt(osg::View* view, float x, float y, ActionType action) {
+        pick(view, x, y, action);
+    }
+};
 
 void OsgEarthMapWidget::setupMap()
 {
@@ -355,9 +384,6 @@ void OsgEarthMapWidget::setupMap()
 
 
     // Create a world-space group for entity PlaceNodes.
-    // NOT using AnnotationLayer — ScreenSpaceLayout positions annotations
-    // differently in the RTTPicker's RTT viewport vs the display viewport,
-    // causing the GPU picker to find the wrong entity under the cursor.
     m_entityRoot = new osg::Group();
     m_entityRoot->setName("TacticalEntities");
     m_mapNode->addChild(m_entityRoot);
@@ -366,69 +392,26 @@ void OsgEarthMapWidget::setupMap()
     m_staleTimer = new QTimer(this);
     connect(m_staleTimer, &QTimer::timeout, this, &OsgEarthMapWidget::staleCheck);
     m_staleTimer->start(5000);
-
-    m_picker = new osgEarth::Util::RTTPicker();
-    m_picker->addChild(m_mapNode);
-
-    struct PickCallback : public osgEarth::Picker::Callback
-    {
-        OsgEarthMapWidget* widget;
-        float m_pressX = 0, m_pressY = 0;
-        bool m_pressed = false;
-
-        bool accept(const osgGA::GUIEventAdapter& ea,
-                    const osgGA::GUIActionAdapter&) override
-        {
-            if (ea.getEventType() == osgGA::GUIEventAdapter::PUSH) {
-                m_pressX = ea.getX();
-                m_pressY = ea.getY();
-                m_pressed = true;
-                return false;
-            }
-            if (ea.getEventType() == osgGA::GUIEventAdapter::RELEASE) {
-                if (!m_pressed) return false;
-                m_pressed = false;
-                float dx = ea.getX() - m_pressX;
-                float dy = ea.getY() - m_pressY;
-                bool isClick = (dx * dx + dy * dy) <= 16.0f;
-                qDebug() << "IconClick: RELEASE at" << ea.getX() << ea.getY()
-                         << "dx" << dx << "dy" << dy << "isClick" << isClick
-                         << "entities" << widget->m_objectIdToEntity.size();
-                return isClick;
-            }
-            if (ea.getEventType() == osgGA::GUIEventAdapter::DRAG) {
-                qDebug() << "IconClick: DRAG";
-                m_pressed = false;
-            }
-            return false;
-        }
-
-        void onHit(osgEarth::ObjectID id) override
-        {
-            qDebug() << "IconClick: HIT ObjectID" << id;
-            auto it = widget->m_objectIdToEntity.constFind(id);
-            if (it != widget->m_objectIdToEntity.constEnd()) {
-                qDebug() << "IconClick: matched uid" << it.value();
-                QString uid = it.value();
-                auto* w = this->widget;
-                QMetaObject::invokeMethod(w, [w, uid]() {
-                    w->handleIconClick(uid);
-                }, Qt::QueuedConnection);
-            } else {
-                qDebug() << "IconClick: no entity for ObjectID" << id;
+    // ObjectIDPicker — GPU-based picking using ObjectID rendering to a small
+    // offscreen texture. Uses EntityIDPicker subclass: no EventRouter registration,
+    // pick is called manually from mouseReleaseEvent with Y-flipped coordinates.
+    m_picker = new EntityIDPicker();
+    m_picker->setRTTSize(512);   // higher RTT resolution for tighter pixel mapping
+    m_picker->setBuffer(1);      // 1-pixel buffer (3×3 area in RTT space)
+    m_picker->setupPicker(m_viewer, m_mapNode);
+    m_picker->onPick([this](osgEarth::ObjectID id,
+                            osgEarth::Util::ObjectIDPicker::ActionType type) {
+        if (type == osgEarth::Util::ObjectIDPicker::ACTION_CLICK) {
+            auto it = m_objectIdToEntity.constFind(id);
+            if (it != m_objectIdToEntity.constEnd()) {
+                qDebug() << "EntityIDPicker: hit" << it.value();
+                handleIconClick(it.value());
             }
         }
-
-        void onMiss() override
-        {
-            qDebug() << "IconClick: MISS";
-        }
-    };
-
-    auto* cb = new PickCallback;
-    cb->widget = this;
-    m_picker->setDefaultCallback(cb);
-    m_viewer->addEventHandler(m_picker.get());
+    });
+    m_mapNode->addChild(m_picker);
+    // Apply declutter setting now that the map is initialized
+    osgEarth::ScreenSpaceLayout::setDeclutteringEnabled(m_declutteringEnabled);
     m_viewer->setSceneData(m_mapNode);
 }
 
@@ -594,6 +577,14 @@ void OsgEarthMapWidget::mouseReleaseEvent(QMouseEvent* event)
             eq->mouseButtonRelease(qRound(event->position().x()), qRound(event->position().y()), button);
         }
 
+        // Manual GPU-based pick (EntityIDPicker) with Y flipped to Qt→OSG.
+        // Do NOT flip in the event queue — the EarthManipulator needs Qt Y.
+        // Only the RTT sampling in pick() needs OpenGL Y (bottom = 0).
+        if (event->button() == Qt::LeftButton) {
+            int flipY = height() - qRound(event->position().y());
+            m_picker->pickAt(m_viewer, qRound(event->position().x()), flipY,
+                             osgEarth::Util::ObjectIDPicker::ACTION_CLICK);
+        }
 
         osgEarth::Util::EarthManipulator* manip =
             dynamic_cast<osgEarth::Util::EarthManipulator*>(m_viewer->getCameraManipulator());
