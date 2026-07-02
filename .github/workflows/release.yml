@@ -11,6 +11,7 @@ env:
 
 jobs:
   build:
+    timeout-minutes: 60
     name: ${{ matrix.arch }}
     strategy:
       fail-fast: false
@@ -114,18 +115,23 @@ jobs:
 
       - name: Build OpenSceneGraph
         if: steps.cache-osg.outputs.cache-hit != 'true'
-        working-directory: deps/OpenSceneGraph
-        run: |
-          cmake -B build \
-            -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
-            -DCMAKE_INSTALL_PREFIX=${{ runner.temp }}/louhi-deps \
-            -DOPENGL_PROFILE=GL3 \
-            -DOSG_GL_CONTEXT_VERSION=4.6 \
-            -DBUILD_OSG_EXAMPLES=OFF \
-            -DDYNAMIC_OSG=OFF \
-            -DDYNAMIC_OPENTHREADS=OFF
-          cmake --build build --config ${{ env.BUILD_TYPE }} --parallel
-          cmake --install build --config ${{ env.BUILD_TYPE }}
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 20
+          max_attempts: 3
+          retry_wait_seconds: 10
+          working_directory: deps/OpenSceneGraph
+          command: |
+            cmake -B build \
+              -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
+              -DCMAKE_INSTALL_PREFIX=${{ runner.temp }}/louhi-deps \
+              -DOPENGL_PROFILE=GL3 \
+              -DOSG_GL_CONTEXT_VERSION=4.6 \
+              -DBUILD_OSG_EXAMPLES=OFF \
+              -DDYNAMIC_OSG=OFF \
+              -DDYNAMIC_OPENTHREADS=OFF
+            cmake --build build --config ${{ env.BUILD_TYPE }} --parallel 2
+            cmake --install build --config ${{ env.BUILD_TYPE }}
 
       # ═════════════════════════════════════════
       # Build osgEarth (cached)
