@@ -55,6 +55,7 @@ OsgEarthMapWidget::OsgEarthMapWidget(QWidget* parent)
     , m_staleTimer(nullptr)
     , m_updateTimer(nullptr)
     , m_mapInitialized(false)
+    , m_targetRange(-1.0)
 {
 
     setMinimumSize(200, 200);
@@ -501,6 +502,7 @@ void OsgEarthMapWidget::setCenter(double lat, double lon)
     while (m_centerLon > 180.0) m_centerLon -= 360.0;
     while (m_centerLon < -180.0) m_centerLon += 360.0;
 
+    m_targetRange = -1.0;
     updateCamera();
     emit centerChanged(m_centerLat, m_centerLon);
 }
@@ -508,6 +510,7 @@ void OsgEarthMapWidget::setCenter(double lat, double lon)
 void OsgEarthMapWidget::setZoom(int zoom)
 {
     m_zoom = qBound(1, zoom, 20);
+    m_targetRange = -1.0;
     updateCamera();
     emit zoomChanged(m_zoom);
 }
@@ -624,14 +627,65 @@ void OsgEarthMapWidget::wheelEvent(QWheelEvent* event)
         return;
     }
 
-    // Zoom factor (same as EarthManipulator's scrollFactor=1.5)
-    double factor = (event->angleDelta().y() > 0) ? 1.5 : (1.0 / 1.5);
-    double oldRange = vp.range()->as(osgEarth::Units::METERS);
+    QDateTime now = QDateTime::currentDateTime();
+    if (!m_lastWheelTime.isValid() || m_lastWheelTime.msecsTo(now) > 300) {
+        m_targetRange = -1.0;
+    }
+    m_lastWheelTime = now;
+
+    double oldRange;
+    if (m_targetRange < 0.0) {
+        oldRange = vp.range()->as(osgEarth::Units::METERS);
+    } else {
+        oldRange = m_targetRange;
+    }
+
+    // Zoom direction: Scroll UP (angleDelta > 0) zooms IN (factor < 1.0, range decreases)
+    // Scroll DOWN (angleDelta < 0) zooms OUT (factor > 1.0, range increases)
+    double factor = (event->angleDelta().y() > 0) ? (1.0 / 1.5) : 1.5;
     double newRange = oldRange * factor;
     newRange = qBound(10.0, newRange, 1.0e12);
+    m_targetRange = newRange;
+
+    // Compute terrain point under mouse using OSG window coords.
+    int mx = qRound(event->position().x());
+    int flipY = height() - qRound(event->position().y());
 
     osgEarth::Viewpoint newVp = vp;
-    // ── Center-only zoom (no mouse-follow) to test setViewpoint stability ──
+    osg::Vec3d targetEcef;
+    if (m_mapNode->getTerrain()->getWorldCoordsUnderMouse(
+            m_viewer.get(), mx, flipY, targetEcef))
+    {
+        const osgEarth::Ellipsoid& ell =
+            m_mapNode->getMapSRS()->getEllipsoid();
+
+        osg::Vec3d oldCenterLla(
+            vp.focalPoint()->x(),   // lon (deg)
+            vp.focalPoint()->y(),   // lat (deg)
+            vp.focalPoint()->z()    // alt (m)
+        );
+        osg::Vec3d oldCenterEcef = ell.geodeticToGeocentric(oldCenterLla);
+
+        // Spherical interpolation: ratio > 0 moves toward target (zoom in)
+        // ratio < 0 moves away from target (zoom out)
+        double ratio = 1.0 - newRange / oldRange;
+
+        osg::Quat rotCenterToTarget;
+        rotCenterToTarget.makeRotate(oldCenterEcef, targetEcef);
+
+        osg::Quat rot;
+        rot.slerp(ratio, osg::Quat(), rotCenterToTarget);
+
+        osg::Vec3d newCenterEcef = rot * oldCenterEcef;
+
+        osg::Vec3d newCenterLla = ell.geocentricToGeodetic(newCenterEcef);
+        newVp.focalPoint() = osgEarth::GeoPoint(
+            m_mapNode->getMapSRS(),
+            newCenterLla.x(),   // lon (deg)
+            newCenterLla.y(),   // lat (deg)
+            newCenterLla.z());  // alt (m)
+    }
+
     newVp.range() = osgEarth::Distance(newRange, osgEarth::Units::METERS);
     newVp.heading() = vp.heading();
     newVp.pitch() = vp.pitch();

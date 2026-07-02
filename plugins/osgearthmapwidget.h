@@ -107,6 +107,8 @@ private:
     int m_zoom;
     bool m_declutteringEnabled = false;
     int m_iconSize = 32;
+    double m_targetRange = -1.0;
+    QDateTime m_lastWheelTime;
 
     QTimer* m_updateTimer;
 
