@@ -43,7 +43,7 @@ jobs:
           sudo apt-get install -y -qq \
             qt6-base-dev qt6-tools-dev qt6-l10n-tools \
             qt6-serialport-dev qt6-positioning-dev qt6-svg-dev \
-            libprotobuf-dev protobuf-compiler libcurl4-openssl-dev \
+            libprotobuf-dev protobuf-compiler libcurl4-openssl-dev libgdal-dev \
             patchelf zip
 
       - name: Install macOS dependencies
@@ -122,6 +122,7 @@ jobs:
           timeout_minutes: 20
           max_attempts: 3
           retry_wait_seconds: 10
+          shell: bash
           command: |
             cd deps/OpenSceneGraph
             cmake -B build \
