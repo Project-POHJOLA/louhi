@@ -689,7 +689,7 @@ void OsgEarthMapWidget::wheelEvent(QWheelEvent* event)
     newVp.range() = osgEarth::Distance(newRange, osgEarth::Units::METERS);
     newVp.heading() = vp.heading();
     newVp.pitch() = vp.pitch();
-    manip->setViewpoint(newVp, 0.2);
+    manip->setViewpoint(newVp, 0.0);
 
     // Update stored center/zoom
     if (newVp.focalPoint().isSet()) {
