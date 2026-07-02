@@ -127,6 +127,7 @@ jobs:
               -DOPENGL_PROFILE=GL3 \
               -DOSG_GL_CONTEXT_VERSION=4.6 \
               -DBUILD_OSG_EXAMPLES=OFF \
+              -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
               -DDYNAMIC_OSG=OFF \
               -DDYNAMIC_OPENTHREADS=OFF
             cmake --build build --config ${{ env.BUILD_TYPE }} --parallel 2
