@@ -656,34 +656,34 @@ void OsgEarthMapWidget::wheelEvent(QWheelEvent* event)
     if (m_mapNode->getTerrain()->getWorldCoordsUnderMouse(
             m_viewer.get(), mx, flipY, targetEcef))
     {
-        const osgEarth::Ellipsoid& ell =
-            m_mapNode->getMapSRS()->getEllipsoid();
+        osg::Vec3d oldCenterEcef;
+        if (vp.focalPoint()->toWorld(oldCenterEcef))
+        {
+            // Spherical interpolation: ratio > 0 moves toward target (zoom in)
+            // ratio < 0 moves away from target (zoom out)
+            double ratio = 1.0 - newRange / oldRange;
 
-        osg::Vec3d oldCenterLla(
-            vp.focalPoint()->x(),   // lon (deg)
-            vp.focalPoint()->y(),   // lat (deg)
-            vp.focalPoint()->z()    // alt (m)
-        );
-        osg::Vec3d oldCenterEcef = ell.geodeticToGeocentric(oldCenterLla);
+            bool isGeographic = m_mapNode->getMapSRS()->isGeographic();
+            osg::Vec3d newCenterEcef;
 
-        // Spherical interpolation: ratio > 0 moves toward target (zoom in)
-        // ratio < 0 moves away from target (zoom out)
-        double ratio = 1.0 - newRange / oldRange;
+            if (isGeographic) {
+                osg::Quat rotCenterToTarget;
+                rotCenterToTarget.makeRotate(oldCenterEcef, targetEcef);
 
-        osg::Quat rotCenterToTarget;
-        rotCenterToTarget.makeRotate(oldCenterEcef, targetEcef);
+                osg::Quat rot;
+                rot.slerp(ratio, osg::Quat(), rotCenterToTarget);
 
-        osg::Quat rot;
-        rot.slerp(ratio, osg::Quat(), rotCenterToTarget);
+                newCenterEcef = rot * oldCenterEcef;
+            } else {
+                newCenterEcef = oldCenterEcef + (targetEcef - oldCenterEcef) * ratio;
+            }
 
-        osg::Vec3d newCenterEcef = rot * oldCenterEcef;
-
-        osg::Vec3d newCenterLla = ell.geocentricToGeodetic(newCenterEcef);
-        newVp.focalPoint() = osgEarth::GeoPoint(
-            m_mapNode->getMapSRS(),
-            newCenterLla.x(),   // lon (deg)
-            newCenterLla.y(),   // lat (deg)
-            newCenterLla.z());  // alt (m)
+            osgEarth::GeoPoint newCenterPoint;
+            if (newCenterPoint.fromWorld(m_mapNode->getMapSRS(), newCenterEcef))
+            {
+                newVp.focalPoint() = newCenterPoint;
+            }
+        }
     }
 
     newVp.range() = osgEarth::Distance(newRange, osgEarth::Units::METERS);
