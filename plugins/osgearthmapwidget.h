@@ -86,7 +86,7 @@ private:
     void setupMap();
     void updateCamera();
     void rebuildMapLayer();
-
+    bool getTerrainIntersection(int mx, int my, osg::Vec3d& out_ecef);
     osg::ref_ptr<osgViewer::Viewer> m_viewer;
     osg::ref_ptr<osgEarth::MapNode> m_mapNode;
     void staleCheck();

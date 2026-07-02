@@ -44,6 +44,7 @@
 #include <osgEarth/GeoData>
 #include <osgEarth/Ellipsoid>
 #include <osgEarth/SpatialReference>
+#include <osgEarth/TerrainEngineNode>
 #include <osgEarth/Terrain>
 #include <osgEarth/Cache>
 #include <osgEarthDrivers/cache_filesystem/FileSystemCache>
@@ -542,6 +543,78 @@ void OsgEarthMapWidget::updateCamera()
     update();
 }
 
+bool OsgEarthMapWidget::getTerrainIntersection(int mx, int my, osg::Vec3d& out_ecef)
+{
+    if (!m_viewer.valid() || !m_mapNode.valid())
+        return false;
+
+    osg::Camera* camera = m_viewer->getCamera();
+    if (!camera)
+        return false;
+
+    osg::Node* terrainNode = m_mapNode->getTerrainEngine()->getNode();
+    if (!terrainNode)
+        return false;
+
+    // Build matrix: LocalToWorld * View * Projection * Window (copied from
+    // osgEarth::Terrain::intersectMouse but using the main camera directly,
+    // bypassing getCameraContainingPosition which can pick up slave RTT cameras).
+    osg::Matrixd matrix;
+
+    // Local-to-world of the terrain node
+    osg::NodePathList nodePaths = terrainNode->getParentalNodePaths();
+    if (nodePaths.empty())
+        return false;
+    matrix.postMult(osg::computeLocalToWorld(nodePaths[0]));
+
+    // View matrix
+    matrix.postMult(camera->getViewMatrix());
+
+    // Projection matrix (adjust near plane to 1.0 for perspective cameras)
+    osg::Matrixd proj = camera->getProjectionMatrix();
+    if (proj(3, 3) == 0.0) // perspective
+    {
+        double fov, aspect, zNear, zFar;
+        if (proj.getPerspective(fov, aspect, zNear, zFar))
+            proj.makePerspective(fov, aspect, 1.0, zFar);
+    }
+    matrix.postMult(proj);
+
+    // Window matrix from viewport
+    double zNear = -1.0, zFar = 1.0;
+    if (camera->getViewport())
+    {
+        matrix.postMult(camera->getViewport()->computeWindowMatrix());
+        zNear = 0.0;
+        zFar = 1.0;
+    }
+
+    // Invert to get clip→world transform
+    osg::Matrixd inverse;
+    if (!inverse.invert(matrix))
+        return false;
+
+    // Ray in world space through the mouse point
+    osg::Vec3d startVertex = osg::Vec3d(mx, my, zNear) * inverse;
+    osg::Vec3d endVertex   = osg::Vec3d(mx, my, zFar) * inverse;
+
+    // Intersect with terrain
+    osg::ref_ptr<osgUtil::LineSegmentIntersector> intersector =
+        new osgUtil::LineSegmentIntersector(
+            osgUtil::Intersector::MODEL, startVertex, endVertex);
+    intersector->setIntersectionLimit(osgUtil::Intersector::LIMIT_NEAREST);
+
+    osgUtil::IntersectionVisitor iv(intersector.get());
+    terrainNode->accept(iv);
+
+    if (intersector->containsIntersections())
+    {
+        out_ecef = intersector->getIntersections().begin()->getWorldIntersectPoint();
+        return true;
+    }
+
+    return false;
+}
 void OsgEarthMapWidget::mousePressEvent(QMouseEvent* event)
 {
     setFocus();
@@ -668,8 +741,7 @@ void OsgEarthMapWidget::wheelEvent(QWheelEvent* event)
 
     osgEarth::Viewpoint newVp = vp;
     osg::Vec3d targetEcef;
-    if (m_mapNode->getTerrain()->getWorldCoordsUnderMouse(
-            m_viewer.get(), mx, flipY, targetEcef))
+    if (getTerrainIntersection(mx, flipY, targetEcef))
     {
         osg::Vec3d oldCenterEcef;
         if (vp.focalPoint()->toWorld(oldCenterEcef))
