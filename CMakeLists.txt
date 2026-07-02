@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
-project(Louhi VERSION 0.3.0 LANGUAGES CXX)
+project(Louhi VERSION 0.0.1 LANGUAGES CXX)
+set(LOUHI_VERSION_STRING "0.0.1-test")
 
 configure_file(
     ${CMAKE_SOURCE_DIR}/src/version.h.in
