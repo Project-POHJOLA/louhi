@@ -588,8 +588,16 @@ void OsgEarthMapWidget::mouseReleaseEvent(QMouseEvent* event)
         // Do NOT flip in the event queue — the EarthManipulator needs Qt Y.
         // Only the RTT sampling in pick() needs OpenGL Y (bottom = 0).
         if (event->button() == Qt::LeftButton) {
+            int mx = qRound(event->position().x());
             int flipY = height() - qRound(event->position().y());
-            m_picker->pickAt(m_viewer, qRound(event->position().x()), flipY,
+            const osg::Viewport* viewport = m_viewer->getCamera()->getViewport();
+            if (viewport) {
+                double scaleX = viewport->width() / (double)width();
+                double scaleY = viewport->height() / (double)height();
+                mx = qRound(event->position().x() * scaleX);
+                flipY = qRound((height() - event->position().y()) * scaleY);
+            }
+            m_picker->pickAt(m_viewer, mx, flipY,
                              osgEarth::Util::ObjectIDPicker::ACTION_CLICK);
         }
 
@@ -647,9 +655,16 @@ void OsgEarthMapWidget::wheelEvent(QWheelEvent* event)
     newRange = qBound(10.0, newRange, 1.0e12);
     m_targetRange = newRange;
 
-    // Compute terrain point under mouse using OSG window coords.
+    // Compute terrain point under mouse using OSG viewport coordinates.
     int mx = qRound(event->position().x());
     int flipY = height() - qRound(event->position().y());
+    const osg::Viewport* viewport = m_viewer->getCamera()->getViewport();
+    if (viewport) {
+        double scaleX = viewport->width() / (double)width();
+        double scaleY = viewport->height() / (double)height();
+        mx = qRound(event->position().x() * scaleX);
+        flipY = qRound((height() - event->position().y()) * scaleY);
+    }
 
     osgEarth::Viewpoint newVp = vp;
     osg::Vec3d targetEcef;
