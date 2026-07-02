@@ -58,11 +58,11 @@ jobs:
         if: runner.os == 'Windows'
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.4.*'
+          version: '6.8.*'
           host: 'windows'
           target: 'desktop'
           arch: 'win64_msvc2022_64'
-          modules: qtpositioning qtserialport qtsvg
+          modules: qtpositioning qtserialport
 
       - name: Install protobuf (Windows)
         if: runner.os == 'Windows'
@@ -228,9 +228,9 @@ jobs:
             <key>CFBundleName</key>
             <string>Louhi</string>
             <key>CFBundleVersion</key>
-            <string>0.3.0</string>
+            <string>0.0.1</string>
             <key>CFBundleShortVersionString</key>
-            <string>0.3.0</string>
+            <string>0.0.1</string>
             <key>CFBundlePackageType</key>
             <string>APPL</string>
             <key>LSMinimumSystemVersion</key>
