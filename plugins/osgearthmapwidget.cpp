@@ -778,6 +778,9 @@ void OsgEarthMapWidget::wheelEvent(QWheelEvent* event)
     newVp.pitch() = vp.pitch();
     manip->setViewpoint(newVp, 0.0);
 
+    // Immediate visual feedback — render the new view synchronously.
+    repaint();
+
     // Update stored center/zoom
     if (newVp.focalPoint().isSet()) {
         m_centerLon = newVp.focalPoint()->x();
@@ -787,8 +790,6 @@ void OsgEarthMapWidget::wheelEvent(QWheelEvent* event)
     m_zoom = qBound(1, m_zoom, 20);
     emit zoomChanged(m_zoom);
     emit centerChanged(m_centerLat, m_centerLon);
-
-    update();
     event->accept();
 }
 
