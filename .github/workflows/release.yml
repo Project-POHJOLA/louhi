@@ -43,7 +43,7 @@ jobs:
           sudo apt-get install -y -qq \
             qt6-base-dev qt6-tools-dev qt6-l10n-tools \
             qt6-serialport-dev qt6-positioning-dev qt6-svg-dev \
-            libprotobuf-dev protobuf-compiler \
+            libprotobuf-dev protobuf-compiler libcurl4-openssl-dev \
             patchelf zip
 
       - name: Install macOS dependencies
@@ -74,12 +74,14 @@ jobs:
       # ═════════════════════════════════════════
 
       - name: Clone NATS C Client
+        shell: bash
         run: |
           rm -rf deps/nats.c
           git clone --depth 1 --branch v3.12.0 \
             https://github.com/nats-io/nats.c.git deps/nats.c
 
       - name: Clone OpenSceneGraph
+        shell: bash
         run: |
           rm -rf deps/OpenSceneGraph
           mkdir -p deps/OpenSceneGraph
@@ -90,6 +92,7 @@ jobs:
           git checkout FETCH_HEAD
 
       - name: Clone osgEarth
+        shell: bash
         run: |
           rm -rf deps/osgearth
           mkdir -p deps/osgearth
