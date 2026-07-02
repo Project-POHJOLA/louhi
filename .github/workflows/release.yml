@@ -42,8 +42,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq \
             qt6-base-dev qt6-tools-dev qt6-l10n-tools \
-            qt6-serialport-dev qt6-positioning-dev \
-            libgl1-mesa-dev libssl-dev \
+            qt6-serialport-dev qt6-positioning-dev qt6-svg-dev \
             libprotobuf-dev protobuf-compiler \
             patchelf zip
 
@@ -120,8 +119,8 @@ jobs:
           timeout_minutes: 20
           max_attempts: 3
           retry_wait_seconds: 10
-          working_directory: deps/OpenSceneGraph
           command: |
+            cd deps/OpenSceneGraph
             cmake -B build \
               -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
               -DCMAKE_INSTALL_PREFIX=${{ runner.temp }}/louhi-deps \
