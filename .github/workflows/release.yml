@@ -11,7 +11,7 @@ env:
 
 jobs:
   build:
-    timeout-minutes: 60
+    timeout-minutes: 90
     name: ${{ matrix.arch }}
     strategy:
       fail-fast: false
@@ -20,8 +20,6 @@ jobs:
           - os: ubuntu-24.04
             arch: linux-amd64
 
-          - os: macos-13
-            arch: macos-amd64
 
           - os: windows-2022
             arch: windows-amd64
@@ -46,13 +44,6 @@ jobs:
             libprotobuf-dev protobuf-compiler libcurl4-openssl-dev libgdal-dev \
             patchelf zip
 
-      - name: Install macOS dependencies
-        if: runner.os == 'macOS'
-        run: |
-          brew update
-          brew install qt@6 openssl protobuf
-          echo "QT6_DIR=$(brew --prefix qt@6)" >> "$GITHUB_ENV"
-          echo "$(brew --prefix qt@6)/bin" >> "$GITHUB_PATH"
 
       - name: Install Qt6 (Windows)
         if: runner.os == 'Windows'
@@ -119,7 +110,7 @@ jobs:
         if: steps.cache-osg.outputs.cache-hit != 'true'
         uses: nick-fields/retry@v3
         with:
-          timeout_minutes: 20
+          timeout_minutes: 40
           max_attempts: 3
           retry_wait_seconds: 10
           shell: bash
@@ -134,7 +125,7 @@ jobs:
               -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
               -DDYNAMIC_OSG=OFF \
               -DDYNAMIC_OPENTHREADS=OFF
-            cmake --build build --config ${{ env.BUILD_TYPE }} --parallel 2
+            cmake --build build --config ${{ env.BUILD_TYPE }} --parallel
             cmake --install build --config ${{ env.BUILD_TYPE }}
 
       # ═════════════════════════════════════════
@@ -175,10 +166,15 @@ jobs:
 
       - name: Build osgEarth
         if: steps.cache-osgearth.outputs.cache-hit != 'true'
-        working-directory: deps/osgearth
-        run: |
-          cmake --build build --config ${{ env.BUILD_TYPE }} --parallel
-          cmake --install build --config ${{ env.BUILD_TYPE }}
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 40
+          max_attempts: 3
+          retry_wait_seconds: 10
+          shell: bash
+          command: |
+            cmake --build build --config ${{ env.BUILD_TYPE }} --parallel
+            cmake --install build --config ${{ env.BUILD_TYPE }}
 
       # ═════════════════════════════════════════
       # Build LOUHI
@@ -204,59 +200,6 @@ jobs:
         run: |
           cmake --build build --target portable-deploy
 
-      - name: Create portable bundle (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          APP="${GITHUB_WORKSPACE}/build/Louhi.app"
-          # Standard .app bundle structure
-          mkdir -p "${APP}/Contents/MacOS/lib" \
-                   "${APP}/Contents/MacOS/plugins" \
-                   "${APP}/Contents/Frameworks" \
-                   "${APP}/Contents/Resources" \
-                   "${APP}/Contents/PlugIns"
-
-          # Install files into bundle
-          cmake --install "${GITHUB_WORKSPACE}/build" --prefix "${APP}/Contents"
-
-          # Rearrange into standard macOS .app layout
-          mv "${APP}/Contents/bin/louhi" "${APP}/Contents/MacOS/"
-          mv "${APP}/Contents/lib/libplugininterface.dylib" "${APP}/Contents/MacOS/lib/"
-          mv "${APP}/Contents/plugins"/* "${APP}/Contents/MacOS/plugins/" 2>/dev/null || true
-          rm -rf "${APP}/Contents/bin" "${APP}/Contents/lib" "${APP}/Contents/plugins"
-
-          # Info.plist — required for macOS app bundles
-          cat > "${APP}/Contents/Info.plist" << 'PLIST_END'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple/DTD PLIST 1.0//EN"
-            "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>CFBundleExecutable</key>
-            <string>louhi</string>
-            <key>CFBundleIdentifier</key>
-            <string>com.louhi.app</string>
-            <key>CFBundleName</key>
-            <string>Louhi</string>
-            <key>CFBundleVersion</key>
-            <string>0.0.1</string>
-            <key>CFBundleShortVersionString</key>
-            <string>0.0.1</string>
-            <key>CFBundlePackageType</key>
-            <string>APPL</string>
-            <key>LSMinimumSystemVersion</key>
-            <string>11.0</string>
-          </dict>
-          </plist>
-          PLIST_END
-
-          # Deploy Qt frameworks via macdeployqt
-          # Collect all plugin dylibs so their Qt rpaths get fixed too
-          MACDEPLOYQT="$(brew --prefix qt@6)/bin/macdeployqt"
-          PLUGIN_ARGS=()
-          while IFS= read -r -d '' lib; do
-            PLUGIN_ARGS+=(-executable="$lib")
-          done < <(find "${APP}" -type f -name '*.dylib' -print0)
-          "${MACDEPLOYQT}" "${APP}" "${PLUGIN_ARGS[@]}" -verbose=1
 
       - name: Create portable bundle (Windows)
         if: runner.os == 'Windows'
@@ -267,8 +210,8 @@ jobs:
       # Package zip
       # ═════════════════════════════════════════
 
-      - name: Package zip (Linux / macOS)
-        if: runner.os != 'Windows'
+      - name: Package zip (Linux)
+        if: runner.os == 'Linux'
         working-directory: build
         run: |
           ZIP_NAME="${{ github.workspace }}/${{ matrix.arch }}-${{ github.ref_name }}.zip"
